@@ -1,6 +1,6 @@
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 cmake_minimum_required(VERSION 3.16)
-project(REPLACE_WITH_YOUR_PROJECT_NAME)
+project(PvZ)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -37,6 +37,8 @@ add_executable(${PROJECT_NAME}
     ${SRC_FILES}
     ${HEADER_FILES}
 )
+
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "PvZ")
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
