@@ -494,3 +494,7 @@ lib/
 
 # Doxygen generated files
 docs/html/
+
+
+# resources
+OOPLab_Resources/
