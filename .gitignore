@@ -221,6 +221,9 @@ _ReSharper*/
 # ImGui local docking/window layout
 imgui.ini
 
+# macOS Finder metadata
+.DS_Store
+
 # TeamCity is a build add-in
 _TeamCity*
 
