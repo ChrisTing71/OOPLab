@@ -218,6 +218,9 @@ _ReSharper*/
 *.[Rr]e[Ss]harper
 *.DotSettings.user
 
+# ImGui local docking/window layout
+imgui.ini
+
 # TeamCity is a build add-in
 _TeamCity*
 

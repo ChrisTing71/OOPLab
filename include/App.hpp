@@ -31,6 +31,17 @@ public:
 private:
   void ValidTask();
   void UpdateCamera(float deltaTime);
+  bool PrepareSunflowerFrames();
+  void PlaceSunflowerAtGridCell(int row, int column);
+
+private:
+  static constexpr float kGridMinXPercent = 21.0F;
+  static constexpr float kGridMaxXPercent = 89.0F;
+  static constexpr float kGridMinYPercent = 10.0F;
+  static constexpr float kGridMaxYPercent = 98.0F;
+  static constexpr int kGridColumns = 9;
+  static constexpr int kGridRows = 5;
+  static constexpr int kGridCellCount = kGridColumns * kGridRows;
 
 private:
   State m_CurrentState = State::START;
@@ -46,6 +57,17 @@ private:
 
   float m_MapScaledWidth = 0.0F;
   bool m_CameraInitialized = false;
+
+  bool m_HasClickedPoint = false;
+  bool m_HasGridHit = false;
+  glm::vec2 m_LastClickPixel = {0.0F, 0.0F};
+  glm::vec2 m_LastClickPercent = {0.0F, 0.0F};
+  int m_LastHitRow = 0;
+  int m_LastHitColumn = 0;
+
+  std::vector<std::string> m_SunflowerFramePaths;
+  int m_SunflowerFrameIntervalMs = 100;
+  std::array<std::shared_ptr<Util::GameObject>, kGridCellCount> m_Sunflowers{};
 };
 
 #endif
