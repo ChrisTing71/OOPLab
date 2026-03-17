@@ -107,7 +107,7 @@ void App::PlaceSunflowerAtGridCell(const int row, const int column) {
 
   const float cellHeightPixel =
       (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  const float targetHeight = cellHeightPixel * 0.9F;
+  const float targetHeight = cellHeightPixel * 0.7F;
   const float drawableHeight = sunflowerAnimation->GetSize().y;
   if (drawableHeight > 0.0F) {
     const float uniformScale = targetHeight / drawableHeight;
@@ -139,6 +139,41 @@ void App::Start() {
 
   m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
   m_Root.AddChild(m_Map);
+
+  // Upper slots UI – fixed to screen, shown only after camera settles
+  {
+    auto slotImg = std::make_shared<Util::Image>("Resources/UpperSlot.png");
+    m_UpperSlots->SetDrawable(slotImg);
+    m_UpperSlots->SetZIndex(10.0F);
+    m_UpperSlots->SetVisible(false);
+
+    constexpr float kTopPercent = 0.9F;
+    constexpr float kBottomPercent = 14.0F;
+    const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
+                                 static_cast<float>(WINDOW_HEIGHT);
+    const glm::vec2 naturalSize = slotImg->GetSize();
+    if (naturalSize.y > 0.0F) {
+      const float slotScale = targetHeightPx / naturalSize.y;
+      m_UpperSlots->m_Transform.scale = {slotScale, slotScale};
+      const float scaledWidth = naturalSize.x * slotScale;
+
+      // Left edge at x = 21 %
+      const float leftEdgePx = 0.21F * static_cast<float>(WINDOW_WIDTH);
+      const float centerPtsdX = leftEdgePx + scaledWidth * 0.5F -
+                                static_cast<float>(WINDOW_WIDTH) * 0.5F;
+
+      // Vertical centre between 0.9 % and 12 % from top
+      const float topPx =
+          (kTopPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float bottomPx =
+          (kBottomPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float centerPtsdY =
+          static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
+
+      m_UpperSlots->m_Transform.translation = {centerPtsdX, centerPtsdY};
+    }
+    m_UIRoot.AddChild(m_UpperSlots);
+  }
 
   m_CameraStage = CameraStage::STAGE1_HOME;
   m_CameraStageElapsed = 0.0F;
@@ -213,6 +248,7 @@ void App::UpdateCamera(const float deltaTime) {
 
   case CameraStage::FINISHED:
     m_CameraCurrentX = centerCameraX;
+    m_UpperSlots->SetVisible(true);
     break;
   }
 
@@ -262,6 +298,7 @@ void App::Update() {
   }
 
   m_Root.Update();
+  m_UIRoot.Update();
 
   if (m_HasClickedPoint) {
     ImGui::SetNextWindowPos(ImVec2(16.0F, 16.0F), ImGuiCond_Always);

@@ -37,7 +37,7 @@ private:
 private:
   static constexpr float kGridMinXPercent = 21.0F;
   static constexpr float kGridMaxXPercent = 89.0F;
-  static constexpr float kGridMinYPercent = 10.0F;
+  static constexpr float kGridMinYPercent = 14.0F;
   static constexpr float kGridMaxYPercent = 98.0F;
   static constexpr int kGridColumns = 9;
   static constexpr int kGridRows = 5;
@@ -68,6 +68,10 @@ private:
   std::vector<std::string> m_SunflowerFramePaths;
   int m_SunflowerFrameIntervalMs = 100;
   std::array<std::shared_ptr<Util::GameObject>, kGridCellCount> m_Sunflowers{};
+
+  std::shared_ptr<Util::GameObject> m_UpperSlots =
+      std::make_shared<Util::GameObject>();
+  Util::Renderer m_UIRoot;
 };
 
 #endif
