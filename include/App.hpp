@@ -3,6 +3,7 @@
 
 #include "pch.hpp" // IWYU pragma: export
 
+#include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
 
 class App {
@@ -67,7 +68,7 @@ private:
 
   std::vector<std::string> m_SunflowerFramePaths;
   int m_SunflowerFrameIntervalMs = 100;
-  std::array<std::shared_ptr<Util::GameObject>, kGridCellCount> m_Sunflowers{};
+  std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
 
   std::shared_ptr<Util::GameObject> m_UpperSlots =
       std::make_shared<Util::GameObject>();

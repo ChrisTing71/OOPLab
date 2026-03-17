@@ -96,23 +96,14 @@ void App::PlaceSunflowerAtGridCell(const int row, const int column) {
   const glm::vec2 localPosition = glm::vec2(centerCursorX, centerCursorY) -
                                   glm::vec2(m_CameraCurrentX, kCameraOffsetY);
 
-  auto sunflower = std::make_shared<Util::GameObject>();
-  auto sunflowerAnimation = std::make_shared<Util::Animation>(
-      m_SunflowerFramePaths, true,
-      static_cast<std::size_t>(m_SunflowerFrameIntervalMs), true, 0);
-
-  sunflower->SetDrawable(sunflowerAnimation);
-  sunflower->SetZIndex(1.0F);
-  sunflower->m_Transform.translation = localPosition;
-
   const float cellHeightPixel =
       (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
   const float targetHeight = cellHeightPixel * 0.7F;
-  const float drawableHeight = sunflowerAnimation->GetSize().y;
-  if (drawableHeight > 0.0F) {
-    const float uniformScale = targetHeight / drawableHeight;
-    sunflower->m_Transform.scale = {uniformScale, uniformScale};
-  }
+
+  auto sunflower = std::make_shared<Sunflower>(
+      m_SunflowerFramePaths,
+      static_cast<std::size_t>(m_SunflowerFrameIntervalMs), targetHeight);
+  sunflower->m_Transform.translation = localPosition;
 
   const int index = row * kGridColumns + column;
   if (m_Sunflowers[static_cast<std::size_t>(index)] != nullptr) {
