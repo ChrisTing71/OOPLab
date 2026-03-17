@@ -1,8 +1,12 @@
 #ifndef APP_HPP
 #define APP_HPP
 
+#include <random>
+
 #include "pch.hpp" // IWYU pragma: export
 
+#include "CardSlot.hpp"
+#include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
 
@@ -34,6 +38,12 @@ private:
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   void PlaceSunflowerAtGridCell(int row, int column);
+  float NextSunSpawnDelay();
+  void SpawnSun();
+  void UpdateSuns(float deltaTime);
+  bool TryCollectSunAt(float pixelX, float pixelY);
+  glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
+  void DrawSunlightCounter() const;
 
 private:
   static constexpr float kGridMinXPercent = 21.0F;
@@ -70,9 +80,18 @@ private:
   int m_SunflowerFrameIntervalMs = 100;
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
 
-  std::shared_ptr<Util::GameObject> m_UpperSlots =
-      std::make_shared<Util::GameObject>();
+  std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   Util::Renderer m_UIRoot;
+
+  bool m_SunSystemStarted = false;
+  float m_SunSpawnCountdown = 0.0F;
+  std::vector<std::shared_ptr<Sun>> m_Suns;
+  std::vector<float> m_SunAliveSeconds;
+  std::vector<bool> m_SunCollecting;
+  std::vector<float> m_SunCollectElapsed;
+  std::vector<glm::vec2> m_SunCollectStart;
+  int m_Sunlight = 0;
+  std::mt19937 m_Random{std::random_device{}()};
 };
 
 #endif

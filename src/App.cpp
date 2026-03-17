@@ -1,6 +1,7 @@
 #include "App.hpp"
 
 #include <filesystem>
+#include <random>
 
 #include "config.hpp"
 
@@ -114,6 +115,197 @@ void App::PlaceSunflowerAtGridCell(const int row, const int column) {
   m_Root.AddChild(sunflower);
 }
 
+float App::NextSunSpawnDelay() {
+  std::uniform_real_distribution<float> delayDist(4.5F, 7.0F);
+  return delayDist(m_Random);
+}
+
+void App::SpawnSun() {
+  constexpr float kSunHeightPercent = 10.0F;
+  constexpr float kSpawnYPercent = 20.0F;
+  std::uniform_real_distribution<float> xPercentDist(8.0F, 92.0F);
+
+  const float spawnXPercent = xPercentDist(m_Random);
+  const float spawnPixelX =
+      (spawnXPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+  const float spawnPixelY =
+      (kSpawnYPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+
+  const float localX = spawnPixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
+  const float localY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - spawnPixelY;
+
+  const float sunHeightPx =
+      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+  auto sun = std::make_shared<Sun>(sunHeightPx);
+  sun->m_Transform.translation = {localX, localY};
+
+  m_Suns.push_back(sun);
+  m_SunAliveSeconds.push_back(0.0F);
+  m_SunCollecting.push_back(false);
+  m_SunCollectElapsed.push_back(0.0F);
+  m_SunCollectStart.push_back(sun->m_Transform.translation);
+  m_UIRoot.AddChild(sun);
+}
+
+glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
+                                            const float sourceY) const {
+  const glm::vec2 slotSize = m_CardSlot->GetScaledSize();
+  const glm::vec2 sourceSize = m_CardSlot->GetSourceSize();
+  if (slotSize.x <= 0.0F || slotSize.y <= 0.0F || sourceSize.x <= 0.0F ||
+      sourceSize.y <= 0.0F) {
+    return {0.0F, 0.0F};
+  }
+
+  const float scaleX = slotSize.x / sourceSize.x;
+  const float scaleY = slotSize.y / sourceSize.y;
+
+  const float leftPx = (sourceX - sourceSize.x * 0.5F) * scaleX;
+  const float topPx = (sourceY - sourceSize.y * 0.5F) * scaleY;
+
+  return {
+      m_CardSlot->m_Transform.translation.x + leftPx,
+      m_CardSlot->m_Transform.translation.y - topPx,
+  };
+}
+
+void App::UpdateSuns(const float deltaTime) {
+  m_SunSpawnCountdown -= deltaTime;
+  if (m_SunSpawnCountdown <= 0.0F) {
+    SpawnSun();
+    m_SunSpawnCountdown = NextSunSpawnDelay();
+  }
+
+  const float dropSpeedPx = 0.05F * static_cast<float>(WINDOW_HEIGHT);
+  const glm::vec2 collectTargetLocal = CardSlotLocalFromSourceCoord(
+      (17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
+  constexpr float kCollectMoveSeconds = 0.30F;
+
+  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
+    if (m_SunCollecting[i]) {
+      m_SunCollectElapsed[i] += deltaTime;
+      const float t =
+          glm::clamp(m_SunCollectElapsed[i] / kCollectMoveSeconds, 0.0F, 1.0F);
+      m_Suns[i]->m_Transform.translation = {
+          Lerp(m_SunCollectStart[i].x, collectTargetLocal.x, t),
+          Lerp(m_SunCollectStart[i].y, collectTargetLocal.y, t),
+      };
+      continue;
+    }
+
+    m_Suns[i]->m_Transform.translation.y -= dropSpeedPx * deltaTime;
+    m_SunAliveSeconds[i] += deltaTime;
+  }
+
+  for (std::size_t i = 0; i < m_Suns.size();) {
+    const auto &sun = m_Suns[i];
+
+    if (m_SunCollecting[i] && m_SunCollectElapsed[i] >= kCollectMoveSeconds) {
+      m_UIRoot.RemoveChild(sun);
+      m_Suns.erase(m_Suns.begin() + static_cast<long>(i));
+      m_SunAliveSeconds.erase(m_SunAliveSeconds.begin() + static_cast<long>(i));
+      m_SunCollecting.erase(m_SunCollecting.begin() + static_cast<long>(i));
+      m_SunCollectElapsed.erase(m_SunCollectElapsed.begin() +
+                                static_cast<long>(i));
+      m_SunCollectStart.erase(m_SunCollectStart.begin() + static_cast<long>(i));
+      m_Sunlight += 25;
+      continue;
+    }
+
+    const glm::vec2 sunSize = sun->GetScaledSize();
+    const float centerY = static_cast<float>(WINDOW_HEIGHT) * 0.5F -
+                          sun->m_Transform.translation.y;
+    const float sunTopPixel = centerY - sunSize.y * 0.5F;
+    if (!m_SunCollecting[i] &&
+        (m_SunAliveSeconds[i] > 5.0F ||
+         sunTopPixel > static_cast<float>(WINDOW_HEIGHT))) {
+      m_UIRoot.RemoveChild(sun);
+      m_Suns.erase(m_Suns.begin() + static_cast<long>(i));
+      m_SunAliveSeconds.erase(m_SunAliveSeconds.begin() + static_cast<long>(i));
+      m_SunCollecting.erase(m_SunCollecting.begin() + static_cast<long>(i));
+      m_SunCollectElapsed.erase(m_SunCollectElapsed.begin() +
+                                static_cast<long>(i));
+      m_SunCollectStart.erase(m_SunCollectStart.begin() + static_cast<long>(i));
+      continue;
+    }
+
+    ++i;
+  }
+}
+
+bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
+  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
+    const auto &sun = m_Suns[i];
+    const glm::vec2 center = {
+        sun->m_Transform.translation.x +
+            static_cast<float>(WINDOW_WIDTH) * 0.5F,
+        static_cast<float>(WINDOW_HEIGHT) * 0.5F -
+            sun->m_Transform.translation.y,
+    };
+    const glm::vec2 size = sun->GetScaledSize();
+    const float halfWidth = size.x * 0.5F;
+    const float halfHeight = size.y * 0.5F;
+
+    const bool hit =
+        (pixelX >= center.x - halfWidth) && (pixelX <= center.x + halfWidth) &&
+        (pixelY >= center.y - halfHeight) && (pixelY <= center.y + halfHeight);
+    if (!hit) {
+      continue;
+    }
+
+    if (m_SunCollecting[i]) {
+      return true;
+    }
+
+    m_SunCollecting[i] = true;
+    m_SunCollectElapsed[i] = 0.0F;
+    m_SunCollectStart[i] = sun->m_Transform.translation;
+    return true;
+  }
+
+  return false;
+}
+
+void App::DrawSunlightCounter() const {
+  if (m_CameraStage != CameraStage::FINISHED) {
+    return;
+  }
+
+  const glm::vec2 slotSize = m_CardSlot->GetScaledSize();
+  const glm::vec2 sourceSize = m_CardSlot->GetSourceSize();
+  if (slotSize.x <= 0.0F || slotSize.y <= 0.0F || sourceSize.x <= 0.0F ||
+      sourceSize.y <= 0.0F) {
+    return;
+  }
+
+  const float centerX = m_CardSlot->m_Transform.translation.x +
+                        static_cast<float>(WINDOW_WIDTH) * 0.5F;
+  const float centerY = static_cast<float>(WINDOW_HEIGHT) * 0.5F -
+                        m_CardSlot->m_Transform.translation.y;
+  const glm::vec2 topLeft = {centerX - slotSize.x * 0.5F,
+                             centerY - slotSize.y * 0.5F};
+
+  const float scaleX = slotSize.x / sourceSize.x;
+  const float scaleY = slotSize.y / sourceSize.y;
+
+  constexpr float kCountX1 = 24.0F;
+  constexpr float kCountY1 = 102.0F;
+  constexpr float kCountX2 = 83.0F;
+  constexpr float kCountY2 = 125.0F;
+
+  const ImVec2 rectMin(topLeft.x + kCountX1 * scaleX,
+                       topLeft.y + kCountY1 * scaleY);
+  const ImVec2 rectMax(topLeft.x + kCountX2 * scaleX,
+                       topLeft.y + kCountY2 * scaleY);
+
+  const std::string sunlightText = std::to_string(m_Sunlight);
+  const ImVec2 textSize = ImGui::CalcTextSize(sunlightText.c_str());
+  const ImVec2 textPos(rectMin.x + (rectMax.x - rectMin.x - textSize.x) * 0.5F,
+                       rectMin.y + (rectMax.y - rectMin.y - textSize.y) * 0.5F);
+
+  ImDrawList *drawList = ImGui::GetForegroundDrawList();
+  drawList->AddText(textPos, IM_COL32(28, 28, 20, 255), sunlightText.c_str());
+}
+
 void App::Start() {
   LOG_TRACE("Start");
 
@@ -131,21 +323,18 @@ void App::Start() {
   m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
   m_Root.AddChild(m_Map);
 
-  // Upper slots UI – fixed to screen, shown only after camera settles
+  // Card slot UI - fixed to screen, shown only after camera settles
   {
-    auto slotImg = std::make_shared<Util::Image>("Resources/UpperSlot.png");
-    m_UpperSlots->SetDrawable(slotImg);
-    m_UpperSlots->SetZIndex(10.0F);
-    m_UpperSlots->SetVisible(false);
+    m_CardSlot->SetVisible(false);
 
     constexpr float kTopPercent = 0.9F;
     constexpr float kBottomPercent = 14.0F;
     const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
                                  static_cast<float>(WINDOW_HEIGHT);
-    const glm::vec2 naturalSize = slotImg->GetSize();
+    const glm::vec2 naturalSize = m_CardSlot->GetSourceSize();
     if (naturalSize.y > 0.0F) {
       const float slotScale = targetHeightPx / naturalSize.y;
-      m_UpperSlots->m_Transform.scale = {slotScale, slotScale};
+      m_CardSlot->m_Transform.scale = {slotScale, slotScale};
       const float scaledWidth = naturalSize.x * slotScale;
 
       // Left edge at x = 21 %
@@ -161,9 +350,9 @@ void App::Start() {
       const float centerPtsdY =
           static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
 
-      m_UpperSlots->m_Transform.translation = {centerPtsdX, centerPtsdY};
+      m_CardSlot->m_Transform.translation = {centerPtsdX, centerPtsdY};
     }
-    m_UIRoot.AddChild(m_UpperSlots);
+    m_UIRoot.AddChild(m_CardSlot);
   }
 
   m_CameraStage = CameraStage::STAGE1_HOME;
@@ -233,13 +422,15 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraCurrentX = centerCameraX;
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
+      m_SunSystemStarted = true;
+      m_SunSpawnCountdown = NextSunSpawnDelay();
     }
     break;
   }
 
   case CameraStage::FINISHED:
     m_CameraCurrentX = centerCameraX;
-    m_UpperSlots->SetVisible(true);
+    m_CardSlot->SetVisible(true);
     break;
   }
 
@@ -247,7 +438,11 @@ void App::UpdateCamera(const float deltaTime) {
 }
 
 void App::Update() {
-  UpdateCamera(Util::Time::GetDeltaTimeMs() / 1000.0F);
+  const float deltaTime = Util::Time::GetDeltaTimeMs() / 1000.0F;
+  UpdateCamera(deltaTime);
+  if (m_SunSystemStarted) {
+    UpdateSuns(deltaTime);
+  }
 
   if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
     const glm::vec2 cursor = Util::Input::GetCursorPosition();
@@ -263,11 +458,13 @@ void App::Update() {
     m_LastClickPercent = {glm::clamp(xPercent, 0.0F, 100.0F),
                           glm::clamp(yPercent, 0.0F, 100.0F)};
 
+    const bool collectedSun = TryCollectSunAt(pixelX, pixelY);
+
     const bool insideGrid =
         (xPercent >= kGridMinXPercent && xPercent <= kGridMaxXPercent) &&
         (yPercent >= kGridMinYPercent && yPercent <= kGridMaxYPercent);
 
-    if (insideGrid) {
+    if (!collectedSun && insideGrid) {
       const float normalizedX =
           (xPercent - kGridMinXPercent) / (kGridMaxXPercent - kGridMinXPercent);
       const float normalizedY =
@@ -290,6 +487,7 @@ void App::Update() {
 
   m_Root.Update();
   m_UIRoot.Update();
+  DrawSunlightCounter();
 
   if (m_HasClickedPoint) {
     ImGui::SetNextWindowPos(ImVec2(16.0F, 16.0F), ImGuiCond_Always);
