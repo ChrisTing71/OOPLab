@@ -33,16 +33,33 @@ public:
     FINISHED,
   };
 
+  struct ActiveSun {
+    std::shared_ptr<Sun> object;
+    std::weak_ptr<Sunflower> producer;
+    float aliveSeconds = 0.0F;
+    bool collecting = false;
+    float collectElapsed = 0.0F;
+    glm::vec2 collectStart = {0.0F, 0.0F};
+    bool rising = false;
+    float riseElapsed = 0.0F;
+    glm::vec2 riseStart = {0.0F, 0.0F};
+    glm::vec2 riseTarget = {0.0F, 0.0F};
+    bool falling = true;
+    bool expires = true;
+  };
+
 private:
   void ValidTask();
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   void PlaceSunflowerAtGridCell(int row, int column);
   float NextSunSpawnDelay();
-  void SpawnSun();
+  void SpawnFallingSun();
+  void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
   bool TryCollectSunAt(float pixelX, float pixelY);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
+  void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
 
 private:
@@ -85,11 +102,7 @@ private:
 
   bool m_SunSystemStarted = false;
   float m_SunSpawnCountdown = 0.0F;
-  std::vector<std::shared_ptr<Sun>> m_Suns;
-  std::vector<float> m_SunAliveSeconds;
-  std::vector<bool> m_SunCollecting;
-  std::vector<float> m_SunCollectElapsed;
-  std::vector<glm::vec2> m_SunCollectStart;
+  std::vector<ActiveSun> m_Suns;
   int m_Sunlight = 0;
   std::mt19937 m_Random{std::random_device{}()};
 };

@@ -120,7 +120,7 @@ float App::NextSunSpawnDelay() {
   return delayDist(m_Random);
 }
 
-void App::SpawnSun() {
+void App::SpawnFallingSun() {
   constexpr float kSunHeightPercent = 10.0F;
   constexpr float kSpawnYPercent = 20.0F;
   std::uniform_real_distribution<float> xPercentDist(8.0F, 92.0F);
@@ -139,12 +139,48 @@ void App::SpawnSun() {
   auto sun = std::make_shared<Sun>(sunHeightPx);
   sun->m_Transform.translation = {localX, localY};
 
-  m_Suns.push_back(sun);
-  m_SunAliveSeconds.push_back(0.0F);
-  m_SunCollecting.push_back(false);
-  m_SunCollectElapsed.push_back(0.0F);
-  m_SunCollectStart.push_back(sun->m_Transform.translation);
+  ActiveSun activeSun;
+  activeSun.object = sun;
+  activeSun.falling = true;
+  activeSun.expires = true;
   m_UIRoot.AddChild(sun);
+  m_Suns.push_back(activeSun);
+}
+
+void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
+  constexpr float kSunHeightPercent = 10.0F;
+  constexpr float kPopDistancePercent = 7.0F;
+  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
+
+  if (sunflower == nullptr) {
+    return;
+  }
+
+  const float sunHeightPx =
+      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+  auto sun = std::make_shared<Sun>(sunHeightPx);
+
+  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
+  const glm::vec2 startPosition = sunflower->m_Transform.translation +
+                                  sunflower->GetSunSpawnOffset() +
+                                  rootToScreenOffset;
+  const glm::vec2 targetPosition =
+      sunflower->m_Transform.translation +
+      sunflower->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
+                                       static_cast<float>(WINDOW_HEIGHT)) +
+      rootToScreenOffset;
+  sun->m_Transform.translation = startPosition;
+
+  ActiveSun activeSun;
+  activeSun.object = sun;
+  activeSun.producer = sunflower;
+  activeSun.falling = false;
+  activeSun.expires = false;
+  activeSun.rising = true;
+  activeSun.riseStart = startPosition;
+  activeSun.riseTarget = targetPosition;
+  m_UIRoot.AddChild(sun);
+  m_Suns.push_back(activeSun);
 }
 
 glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
@@ -171,60 +207,80 @@ glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
 void App::UpdateSuns(const float deltaTime) {
   m_SunSpawnCountdown -= deltaTime;
   if (m_SunSpawnCountdown <= 0.0F) {
-    SpawnSun();
+    SpawnFallingSun();
     m_SunSpawnCountdown = NextSunSpawnDelay();
+  }
+
+  for (const auto &sunflower : m_Sunflowers) {
+    if (sunflower == nullptr || !sunflower->ShouldProduceSun(deltaTime)) {
+      continue;
+    }
+
+    SpawnSunFromSunflower(sunflower);
   }
 
   const float dropSpeedPx = 0.05F * static_cast<float>(WINDOW_HEIGHT);
   const glm::vec2 collectTargetLocal = CardSlotLocalFromSourceCoord(
       (17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
   constexpr float kCollectMoveSeconds = 0.30F;
+  constexpr float kRiseMoveSeconds = 0.35F;
 
   for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    if (m_SunCollecting[i]) {
-      m_SunCollectElapsed[i] += deltaTime;
+    auto &sun = m_Suns[i];
+
+    if (sun.collecting) {
+      sun.collectElapsed += deltaTime;
       const float t =
-          glm::clamp(m_SunCollectElapsed[i] / kCollectMoveSeconds, 0.0F, 1.0F);
-      m_Suns[i]->m_Transform.translation = {
-          Lerp(m_SunCollectStart[i].x, collectTargetLocal.x, t),
-          Lerp(m_SunCollectStart[i].y, collectTargetLocal.y, t),
+          glm::clamp(sun.collectElapsed / kCollectMoveSeconds, 0.0F, 1.0F);
+      sun.object->m_Transform.translation = {
+          Lerp(sun.collectStart.x, collectTargetLocal.x, t),
+          Lerp(sun.collectStart.y, collectTargetLocal.y, t),
       };
       continue;
     }
 
-    m_Suns[i]->m_Transform.translation.y -= dropSpeedPx * deltaTime;
-    m_SunAliveSeconds[i] += deltaTime;
+    sun.aliveSeconds += deltaTime;
+
+    if (sun.rising) {
+      sun.riseElapsed += deltaTime;
+      const float t =
+          glm::clamp(sun.riseElapsed / kRiseMoveSeconds, 0.0F, 1.0F);
+      const float easedT = 1.0F - (1.0F - t) * (1.0F - t);
+      sun.object->m_Transform.translation = {
+          Lerp(sun.riseStart.x, sun.riseTarget.x, easedT),
+          Lerp(sun.riseStart.y, sun.riseTarget.y, easedT),
+      };
+      if (t >= 1.0F) {
+        sun.rising = false;
+      }
+      continue;
+    }
+
+    if (sun.falling) {
+      sun.object->m_Transform.translation.y -= dropSpeedPx * deltaTime;
+    }
   }
 
   for (std::size_t i = 0; i < m_Suns.size();) {
     const auto &sun = m_Suns[i];
 
-    if (m_SunCollecting[i] && m_SunCollectElapsed[i] >= kCollectMoveSeconds) {
-      m_UIRoot.RemoveChild(sun);
-      m_Suns.erase(m_Suns.begin() + static_cast<long>(i));
-      m_SunAliveSeconds.erase(m_SunAliveSeconds.begin() + static_cast<long>(i));
-      m_SunCollecting.erase(m_SunCollecting.begin() + static_cast<long>(i));
-      m_SunCollectElapsed.erase(m_SunCollectElapsed.begin() +
-                                static_cast<long>(i));
-      m_SunCollectStart.erase(m_SunCollectStart.begin() + static_cast<long>(i));
+    if (sun.collecting && sun.collectElapsed >= kCollectMoveSeconds) {
+      if (const auto producer = sun.producer.lock(); producer != nullptr) {
+        producer->OnProducedSunCollected();
+      }
+      RemoveSunAt(i);
       m_Sunlight += 25;
       continue;
     }
 
-    const glm::vec2 sunSize = sun->GetScaledSize();
+    const glm::vec2 sunSize = sun.object->GetScaledSize();
     const float centerY = static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-                          sun->m_Transform.translation.y;
+                          sun.object->m_Transform.translation.y;
     const float sunTopPixel = centerY - sunSize.y * 0.5F;
-    if (!m_SunCollecting[i] &&
-        (m_SunAliveSeconds[i] > 5.0F ||
-         sunTopPixel > static_cast<float>(WINDOW_HEIGHT))) {
-      m_UIRoot.RemoveChild(sun);
-      m_Suns.erase(m_Suns.begin() + static_cast<long>(i));
-      m_SunAliveSeconds.erase(m_SunAliveSeconds.begin() + static_cast<long>(i));
-      m_SunCollecting.erase(m_SunCollecting.begin() + static_cast<long>(i));
-      m_SunCollectElapsed.erase(m_SunCollectElapsed.begin() +
-                                static_cast<long>(i));
-      m_SunCollectStart.erase(m_SunCollectStart.begin() + static_cast<long>(i));
+    if (!sun.collecting && sun.expires &&
+        (sun.aliveSeconds > 5.0F ||
+         (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
+      RemoveSunAt(i);
       continue;
     }
 
@@ -234,14 +290,14 @@ void App::UpdateSuns(const float deltaTime) {
 
 bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
   for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    const auto &sun = m_Suns[i];
+    auto &sun = m_Suns[i];
     const glm::vec2 center = {
-        sun->m_Transform.translation.x +
+        sun.object->m_Transform.translation.x +
             static_cast<float>(WINDOW_WIDTH) * 0.5F,
         static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-            sun->m_Transform.translation.y,
+            sun.object->m_Transform.translation.y,
     };
-    const glm::vec2 size = sun->GetScaledSize();
+    const glm::vec2 size = sun.object->GetScaledSize();
     const float halfWidth = size.x * 0.5F;
     const float halfHeight = size.y * 0.5F;
 
@@ -252,17 +308,24 @@ bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
       continue;
     }
 
-    if (m_SunCollecting[i]) {
+    if (sun.collecting) {
       return true;
     }
 
-    m_SunCollecting[i] = true;
-    m_SunCollectElapsed[i] = 0.0F;
-    m_SunCollectStart[i] = sun->m_Transform.translation;
+    sun.collecting = true;
+    sun.collectElapsed = 0.0F;
+    sun.collectStart = sun.object->m_Transform.translation;
+    sun.rising = false;
+    sun.falling = false;
     return true;
   }
 
   return false;
+}
+
+void App::RemoveSunAt(const std::size_t index) {
+  m_UIRoot.RemoveChild(m_Suns[index].object);
+  m_Suns.erase(m_Suns.begin() + static_cast<long>(index));
 }
 
 void App::DrawSunlightCounter() const {
