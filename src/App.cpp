@@ -115,15 +115,14 @@ void App::PlaceSunflowerAtGridCell(const int row, const int column) {
   m_Root.AddChild(sunflower);
 }
 
-float App::NextSunSpawnDelay() {
-  std::uniform_real_distribution<float> delayDist(4.5F, 7.0F);
-  return delayDist(m_Random);
-}
-
 void App::SpawnFallingSun() {
   constexpr float kSunHeightPercent = 10.0F;
   constexpr float kSpawnYPercent = 20.0F;
+  constexpr float kStopMinYPercent = 52.0F;
+  constexpr float kStopMaxYPercent = 78.0F;
   std::uniform_real_distribution<float> xPercentDist(8.0F, 92.0F);
+  std::uniform_real_distribution<float> stopYPercentDist(kStopMinYPercent,
+                                                         kStopMaxYPercent);
 
   const float spawnXPercent = xPercentDist(m_Random);
   const float spawnPixelX =
@@ -133,6 +132,10 @@ void App::SpawnFallingSun() {
 
   const float localX = spawnPixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
   const float localY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - spawnPixelY;
+    const float stopPixelY =
+      (stopYPercentDist(m_Random) / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+    const float stopLocalY =
+      static_cast<float>(WINDOW_HEIGHT) * 0.5F - stopPixelY;
 
   const float sunHeightPx =
       (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
@@ -142,6 +145,9 @@ void App::SpawnFallingSun() {
   ActiveSun activeSun;
   activeSun.object = sun;
   activeSun.falling = true;
+  activeSun.stopped = false;
+  activeSun.stopLocalY = stopLocalY;
+  activeSun.fromSky = true;
   activeSun.expires = true;
   m_UIRoot.AddChild(sun);
   m_Suns.push_back(activeSun);
@@ -208,7 +214,7 @@ void App::UpdateSuns(const float deltaTime) {
   m_SunSpawnCountdown -= deltaTime;
   if (m_SunSpawnCountdown <= 0.0F) {
     SpawnFallingSun();
-    m_SunSpawnCountdown = NextSunSpawnDelay();
+    m_SunSpawnCountdown = 12.0F;
   }
 
   for (const auto &sunflower : m_Sunflowers) {
@@ -258,6 +264,18 @@ void App::UpdateSuns(const float deltaTime) {
 
     if (sun.falling) {
       sun.object->m_Transform.translation.y -= dropSpeedPx * deltaTime;
+
+      if (sun.fromSky && !sun.stopped &&
+          sun.object->m_Transform.translation.y <= sun.stopLocalY) {
+        sun.object->m_Transform.translation.y = sun.stopLocalY;
+        sun.falling = false;
+        sun.stopped = true;
+        sun.stoppedSeconds = 0.0F;
+      }
+    }
+
+    if (sun.fromSky && sun.stopped) {
+      sun.stoppedSeconds += deltaTime;
     }
   }
 
@@ -278,8 +296,8 @@ void App::UpdateSuns(const float deltaTime) {
                           sun.object->m_Transform.translation.y;
     const float sunTopPixel = centerY - sunSize.y * 0.5F;
     if (!sun.collecting && sun.expires &&
-        (sun.aliveSeconds > 5.0F ||
-         (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
+      ((sun.fromSky && sun.stopped && sun.stoppedSeconds > 5.0F) ||
+       (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
       RemoveSunAt(i);
       continue;
     }
@@ -486,7 +504,7 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
       m_SunSystemStarted = true;
-      m_SunSpawnCountdown = NextSunSpawnDelay();
+      m_SunSpawnCountdown = 8.0F;
     }
     break;
   }

@@ -37,6 +37,7 @@ public:
     std::shared_ptr<Sun> object;
     std::weak_ptr<Sunflower> producer;
     float aliveSeconds = 0.0F;
+    float stoppedSeconds = 0.0F;
     bool collecting = false;
     float collectElapsed = 0.0F;
     glm::vec2 collectStart = {0.0F, 0.0F};
@@ -45,7 +46,10 @@ public:
     glm::vec2 riseStart = {0.0F, 0.0F};
     glm::vec2 riseTarget = {0.0F, 0.0F};
     bool falling = true;
+    bool stopped = false;
+    float stopLocalY = 0.0F;
     bool expires = true;
+    bool fromSky = false;
   };
 
 private:
@@ -53,7 +57,6 @@ private:
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   void PlaceSunflowerAtGridCell(int row, int column);
-  float NextSunSpawnDelay();
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
