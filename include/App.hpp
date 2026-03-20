@@ -54,6 +54,12 @@ public:
     bool fromSky = false;
   };
 
+  struct ActivePea {
+    std::shared_ptr<Util::GameObject> object;
+    bool hitting = false;
+    std::shared_ptr<Util::Animation> hitAnimation = nullptr;
+  };
+
   enum class PlantCardSelection {
     NONE,
     SUNFLOWER,
@@ -70,6 +76,7 @@ private:
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   bool PreparePeashooterFrames();
+  bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition,
@@ -87,6 +94,9 @@ private:
   void UpdateSuns(float deltaTime);
   void SetupBasicZombieStand();
   void UpdateBasicZombie(float deltaTime);
+  void UpdatePeashooterCombat(float deltaTime);
+  void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
+  bool HasAliveZombieInRow(int row, float shooterX) const;
   bool TryCollectSunAt(float pixelX, float pixelY);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
   glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
@@ -130,6 +140,16 @@ private:
   int m_SunflowerFrameIntervalMs = 100;
   std::vector<std::string> m_PeashooterFramePaths;
   int m_PeashooterFrameIntervalMs = 100;
+  std::vector<std::string> m_PeashooterAttackFramePaths;
+  int m_PeashooterAttackFrameIntervalMs = 100;
+  std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
+  std::vector<ActivePea> m_Peas;
+  std::vector<std::string> m_PeaHitFramePaths = {
+      "Resources/peashooter_bullet/hit1.png",
+      "Resources/peashooter_bullet/hit2.png",
+      "Resources/peashooter_bullet/hit3.png",
+      "Resources/peashooter_bullet/hit4.png",
+  };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
   std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
 

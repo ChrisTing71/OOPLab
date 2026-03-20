@@ -140,6 +140,14 @@ bool App::PreparePeashooterFrames() {
       "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
 }
 
+bool App::PreparePeashooterAttackFrames() {
+  return PrepareFramesFromGif(
+      "Resources/peashooter_attack/Mobile - Plants vs. Zombies 2 - "
+      "Peashooter - Attack.gif",
+      "Resources/peashooter_attack/frames", "peashooter_attack_frame",
+      m_PeashooterAttackFramePaths, m_PeashooterAttackFrameIntervalMs);
+}
+
 bool App::PrepareBasicZombieFrames() {
   const bool okStand = PrepareFramesFromGif(
       "Resources/zombies/basic_zombie/stand.gif",
@@ -649,6 +657,138 @@ void App::UpdateBasicZombie(const float deltaTime) {
   m_BasicZombieStartedWalking = true;
 }
 
+bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
+  if (m_BasicZombie == nullptr || m_BasicZombie->IsDestroyed()) {
+    return false;
+  }
+  if (m_BasicZombieRow != row) {
+    return false;
+  }
+  return m_BasicZombie->m_Transform.translation.x > shooterX;
+}
+
+void App::SpawnPeaFromPeashooter(
+    const std::shared_ptr<Peashooter> &peashooter) {
+  if (peashooter == nullptr) {
+    return;
+  }
+
+  auto pea = std::make_shared<Util::GameObject>();
+  auto peaImage =
+      std::make_shared<Util::Image>("Resources/peashooter_bullet/pea.png");
+  pea->SetDrawable(peaImage);
+  pea->SetZIndex(1.2F);
+
+  const float targetHeight = ComputeGridCellTargetHeight() * 0.22F;
+  const glm::vec2 peaNaturalSize = peaImage->GetSize();
+  if (peaNaturalSize.y > 0.0F) {
+    const float scale = targetHeight / peaNaturalSize.y;
+    pea->m_Transform.scale = {scale, scale};
+  }
+
+  const glm::vec2 shooterSize = peashooter->GetScaledSize();
+  pea->m_Transform.translation = peashooter->m_Transform.translation;
+  pea->m_Transform.translation.x += shooterSize.x * 0.28F;
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float upwardOffsetPx =
+      (cellHeightPercent * 0.05F / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+  pea->m_Transform.translation.y += upwardOffsetPx;
+
+  ActivePea activePea;
+  activePea.object = pea;
+  m_Root.AddChild(pea);
+  m_Peas.push_back(activePea);
+}
+
+void App::UpdatePeashooterCombat(const float deltaTime) {
+  if (deltaTime <= 0.0F || !PreparePeashooterAttackFrames()) {
+    return;
+  }
+
+  constexpr float kShootIntervalSec = 1.0F;
+  for (int index = 0; index < kGridCellCount; ++index) {
+    auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
+    if (peashooter == nullptr || peashooter->IsDead()) {
+      continue;
+    }
+
+    const int row = index / kGridColumns;
+    const bool hasZombieInRow =
+        HasAliveZombieInRow(row, peashooter->m_Transform.translation.x);
+    auto &cooldown =
+        m_PeashooterAttackCooldowns[static_cast<std::size_t>(index)];
+
+    if (peashooter->IsAttacking()) {
+      if (peashooter->UpdateAttackStateAndCheckShoot()) {
+        SpawnPeaFromPeashooter(peashooter);
+      }
+      continue;
+    }
+
+    if (!hasZombieInRow) {
+      cooldown = kShootIntervalSec;
+      continue;
+    }
+
+    cooldown -= deltaTime;
+    if (cooldown <= 0.0F &&
+        peashooter->StartAttack(
+            m_PeashooterAttackFramePaths,
+            static_cast<std::size_t>(m_PeashooterAttackFrameIntervalMs))) {
+      cooldown = kShootIntervalSec;
+    }
+  }
+
+  constexpr float kPeaSpeedPxPerSec = 0.45F * static_cast<float>(WINDOW_WIDTH);
+  constexpr std::size_t kHitFrameIntervalMs = 50;
+  for (std::size_t i = 0; i < m_Peas.size();) {
+    auto &pea = m_Peas[i];
+    if (!pea.hitting) {
+      pea.object->m_Transform.translation.x += kPeaSpeedPxPerSec * deltaTime;
+
+      const bool outOfRight =
+          pea.object->m_Transform.translation.x >
+          (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
+      if (outOfRight) {
+        m_Root.RemoveChild(pea.object);
+        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        continue;
+      }
+
+      if (m_BasicZombie != nullptr && !m_BasicZombie->IsDestroyed() &&
+          Zombie::CheckAABBCollision(*pea.object, *m_BasicZombie)) {
+        m_BasicZombie->TakeDamage(20);
+
+        auto hitAnim = std::make_shared<Util::Animation>(
+            m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);
+        pea.object->SetDrawable(hitAnim);
+
+        const glm::vec2 peaSize = pea.object->GetScaledSize();
+        const glm::vec2 hitSize = hitAnim->GetSize();
+        if (hitSize.y > 0.0F && peaSize.y > 0.0F) {
+          const float scale = peaSize.y / hitSize.y;
+          pea.object->m_Transform.scale = {scale, scale};
+        }
+
+        pea.hitting = true;
+        pea.hitAnimation = hitAnim;
+      }
+      ++i;
+      continue;
+    }
+
+    if (pea.hitAnimation != nullptr &&
+        pea.hitAnimation->GetState() == Util::Animation::State::ENDED) {
+      m_Root.RemoveChild(pea.object);
+      m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+      continue;
+    }
+
+    ++i;
+  }
+}
+
 bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
   for (std::size_t i = 0; i < m_Suns.size(); ++i) {
     auto &sun = m_Suns[i];
@@ -780,7 +920,10 @@ void App::Start() {
   }
 
   SetupPlantCards();
+  PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+
+  m_PeashooterAttackCooldowns.fill(1.0F);
 
   m_CameraStage = CameraStage::STAGE1_HOME;
   m_CameraStageElapsed = 0.0F;
@@ -880,6 +1023,7 @@ void App::Update() {
     UpdateSuns(deltaTime);
   }
   UpdateBasicZombie(deltaTime);
+  UpdatePeashooterCombat(deltaTime);
 
   if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_RB)) {
     m_SelectedPlant = PlantCardSelection::NONE;
