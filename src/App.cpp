@@ -18,41 +18,45 @@ float Lerp(const float from, const float to, const float t) {
 }
 } // namespace
 
-bool App::PrepareSunflowerFrames() {
-  if (!m_SunflowerFramePaths.empty()) {
+bool App::PrepareFramesFromGif(const std::string &gifPath,
+                               const std::string &framesDir,
+                               const std::string &framePrefix,
+                               std::vector<std::string> &framePaths,
+                               int &frameIntervalMs) {
+  if (!framePaths.empty()) {
     return true;
   }
 
-  constexpr std::string_view kSunflowerFramesDir = "Resources/sunflower_frames";
   std::error_code mkdirError;
-  std::filesystem::create_directories(kSunflowerFramesDir, mkdirError);
+  std::filesystem::create_directories(framesDir, mkdirError);
   if (mkdirError) {
-    LOG_WARN("Failed to create sunflower frames folder: {}",
+    LOG_WARN("Failed to create {} folder: {}", framePrefix,
              mkdirError.message());
   }
 
-  IMG_Animation *gif = IMG_LoadAnimation("Resources/sunflower.gif");
+  IMG_Animation *gif = IMG_LoadAnimation(gifPath.c_str());
   if (gif == nullptr || gif->count <= 0) {
-    LOG_ERROR("Failed to load sunflower.gif animation: {}", IMG_GetError());
+    LOG_ERROR("Failed to load {} animation: {}", gifPath, IMG_GetError());
     if (gif != nullptr) {
       IMG_FreeAnimation(gif);
     }
     return false;
   }
 
-  m_SunflowerFramePaths.reserve(static_cast<std::size_t>(gif->count));
+  framePaths.reserve(static_cast<std::size_t>(gif->count));
   int delaySum = 0;
   int delayCount = 0;
 
   for (int i = 0; i < gif->count; ++i) {
     const std::string framePath =
-        fmt::format("{}/sunflower_frame_{:03d}.png", kSunflowerFramesDir, i);
+        fmt::format("{}/{}_{:03d}.png", framesDir, framePrefix, i);
     if (IMG_SavePNG(gif->frames[i], framePath.c_str()) != 0) {
-      LOG_WARN("Failed to save sunflower frame {}: {}", i, IMG_GetError());
+      LOG_WARN("Failed to save {} frame {}: {}", framePrefix, i,
+               IMG_GetError());
       continue;
     }
 
-    m_SunflowerFramePaths.push_back(framePath);
+    framePaths.push_back(framePath);
 
     if (gif->delays != nullptr && gif->delays[i] > 0) {
       delaySum += gif->delays[i];
@@ -61,18 +65,20 @@ bool App::PrepareSunflowerFrames() {
   }
 
   if (delayCount > 0) {
-    m_SunflowerFrameIntervalMs = glm::max(30, delaySum / delayCount);
+    frameIntervalMs = glm::max(30, delaySum / delayCount);
   }
 
   IMG_FreeAnimation(gif);
-  return !m_SunflowerFramePaths.empty();
+  return !framePaths.empty();
 }
 
-void App::PlaceSunflowerAtGridCell(const int row, const int column) {
-  if (!PrepareSunflowerFrames()) {
-    return;
-  }
+bool App::IsCellOccupied(const int index) const {
+  return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
+         m_Peashooters[static_cast<std::size_t>(index)] != nullptr;
+}
 
+glm::vec2 App::ComputeGridCellLocalPosition(const int row,
+                                            const int column) const {
   const float cellWidthPercent =
       (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
   const float cellHeightPercent =
@@ -94,25 +100,83 @@ void App::PlaceSunflowerAtGridCell(const int row, const int column) {
       static_cast<float>(WINDOW_HEIGHT) * 0.5F - centerPixelY;
 
   constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-  const glm::vec2 localPosition = glm::vec2(centerCursorX, centerCursorY) -
-                                  glm::vec2(m_CameraCurrentX, kCameraOffsetY);
+  return glm::vec2(centerCursorX, centerCursorY) -
+         glm::vec2(m_CameraCurrentX, kCameraOffsetY);
+}
 
+float App::ComputeGridCellTargetHeight() const {
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
   const float cellHeightPixel =
       (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  const float targetHeight = cellHeightPixel * 0.7F;
+  return cellHeightPixel * 0.7F;
+}
+
+bool App::PrepareSunflowerFrames() {
+  return PrepareFramesFromGif(
+      "Resources/sunflower.gif", "Resources/sunflower_frames",
+      "sunflower_frame", m_SunflowerFramePaths, m_SunflowerFrameIntervalMs);
+}
+
+bool App::PreparePeashooterFrames() {
+  return PrepareFramesFromGif(
+      "Resources/peashooter.gif", "Resources/peashooter_frames",
+      "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
+}
+
+bool App::PreparePlantPlacement(const int row, const int column, int &index,
+                                glm::vec2 &localPosition,
+                                float &targetHeight) const {
+  index = row * kGridColumns + column;
+  if (IsCellOccupied(index)) {
+    return false;
+  }
+
+  localPosition = ComputeGridCellLocalPosition(row, column);
+  targetHeight = ComputeGridCellTargetHeight();
+  return true;
+}
+
+void App::PlaceSunflowerAtGridCell(const int row, const int column) {
+  if (!PrepareSunflowerFrames()) {
+    return;
+  }
+
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  float targetHeight = 0.0F;
+  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+    return;
+  }
 
   auto sunflower = std::make_shared<Sunflower>(
       m_SunflowerFramePaths,
       static_cast<std::size_t>(m_SunflowerFrameIntervalMs), targetHeight);
   sunflower->m_Transform.translation = localPosition;
 
-  const int index = row * kGridColumns + column;
-  if (m_Sunflowers[static_cast<std::size_t>(index)] != nullptr) {
-    m_Root.RemoveChild(m_Sunflowers[static_cast<std::size_t>(index)]);
-  }
-
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
+}
+
+void App::PlacePeashooterAtGridCell(const int row, const int column) {
+  if (!PreparePeashooterFrames()) {
+    return;
+  }
+
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  float targetHeight = 0.0F;
+  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+    return;
+  }
+
+  auto peashooter = std::make_shared<Peashooter>(
+      m_PeashooterFramePaths,
+      static_cast<std::size_t>(m_PeashooterFrameIntervalMs), targetHeight);
+  peashooter->m_Transform.translation = localPosition;
+
+  m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
+  m_Root.AddChild(peashooter);
 }
 
 void App::SpawnFallingSun() {
@@ -132,9 +196,9 @@ void App::SpawnFallingSun() {
 
   const float localX = spawnPixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
   const float localY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - spawnPixelY;
-    const float stopPixelY =
+  const float stopPixelY =
       (stopYPercentDist(m_Random) / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-    const float stopLocalY =
+  const float stopLocalY =
       static_cast<float>(WINDOW_HEIGHT) * 0.5F - stopPixelY;
 
   const float sunHeightPx =
@@ -296,8 +360,8 @@ void App::UpdateSuns(const float deltaTime) {
                           sun.object->m_Transform.translation.y;
     const float sunTopPixel = centerY - sunSize.y * 0.5F;
     if (!sun.collecting && sun.expires &&
-      ((sun.fromSky && sun.stopped && sun.stoppedSeconds > 5.0F) ||
-       (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
+        ((sun.fromSky && sun.stopped && sun.stoppedSeconds > 5.0F) ||
+         (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
       RemoveSunAt(i);
       continue;
     }
@@ -525,7 +589,8 @@ void App::Update() {
     UpdateSuns(deltaTime);
   }
 
-  if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
+  if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB) ||
+      Util::Input::IsKeyDown(Util::Keycode::MOUSE_RB)) {
     const glm::vec2 cursor = Util::Input::GetCursorPosition();
     const float pixelX = cursor.x + static_cast<float>(WINDOW_WIDTH) * 0.5F;
     const float pixelY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - cursor.y;
@@ -560,7 +625,11 @@ void App::Update() {
       m_LastHitRow = row + 1;
       m_HasGridHit = true;
 
-      PlaceSunflowerAtGridCell(row, column);
+      if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_RB)) {
+        PlacePeashooterAtGridCell(row, column);
+      } else {
+        PlaceSunflowerAtGridCell(row, column);
+      }
     } else {
       m_HasGridHit = false;
     }

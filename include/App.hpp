@@ -6,6 +6,7 @@
 #include "pch.hpp" // IWYU pragma: export
 
 #include "CardSlot.hpp"
+#include "Peashooter.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
@@ -54,9 +55,22 @@ public:
 
 private:
   void ValidTask();
+  bool PrepareFramesFromGif(const std::string &gifPath,
+                            const std::string &framesDir,
+                            const std::string &framePrefix,
+                            std::vector<std::string> &framePaths,
+                            int &frameIntervalMs);
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
+  bool PreparePeashooterFrames();
+  bool PreparePlantPlacement(int row, int column, int &index,
+                             glm::vec2 &localPosition,
+                             float &targetHeight) const;
   void PlaceSunflowerAtGridCell(int row, int column);
+  void PlacePeashooterAtGridCell(int row, int column);
+  bool IsCellOccupied(int index) const;
+  glm::vec2 ComputeGridCellLocalPosition(int row, int column) const;
+  float ComputeGridCellTargetHeight() const;
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
@@ -98,7 +112,10 @@ private:
 
   std::vector<std::string> m_SunflowerFramePaths;
   int m_SunflowerFrameIntervalMs = 100;
+  std::vector<std::string> m_PeashooterFramePaths;
+  int m_PeashooterFrameIntervalMs = 100;
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
+  std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   Util::Renderer m_UIRoot;
