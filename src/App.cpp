@@ -142,7 +142,8 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
-         m_Peashooters[static_cast<std::size_t>(index)] != nullptr;
+         m_Peashooters[static_cast<std::size_t>(index)] != nullptr ||
+         m_Nuts[static_cast<std::size_t>(index)] != nullptr;
 }
 
 glm::vec2 App::ComputeGridCellLocalPosition(const int row,
@@ -190,6 +191,29 @@ bool App::PreparePeashooterFrames() {
   return PrepareFramesFromGif(
       "Resources/peashooter.gif", "Resources/peashooter_frames",
       "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
+}
+
+bool App::PrepareNutFrames() {
+  const bool ok1 = PrepareFramesFromGif(
+      "Resources/nut/nut1/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle.gif",
+      "Resources/nut/nut1/frames", "nut1_frame", m_Nut1FramePaths,
+      m_Nut1FrameIntervalMs);
+  const bool ok2 = PrepareFramesFromGif(
+      "Resources/nut/nut2/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
+      "Degrade 1.gif",
+      "Resources/nut/nut2/frames", "nut2_frame", m_Nut2FramePaths,
+      m_Nut2FrameIntervalMs);
+  const bool ok3 = PrepareFramesFromGif(
+      "Resources/nut/nut3/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
+      "Degrade 2.gif",
+      "Resources/nut/nut3/frames", "nut3_frame", m_Nut3FramePaths,
+      m_Nut3FrameIntervalMs);
+  const bool ok4 = PrepareFramesFromGif(
+      "Resources/nut/nut4/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
+      "Degrade 3.gif",
+      "Resources/nut/nut4/frames", "nut4_frame", m_Nut4FramePaths,
+      m_Nut4FrameIntervalMs);
+  return ok1 && ok2 && ok3 && ok4;
 }
 
 bool App::PreparePeashooterAttackFrames() {
@@ -256,11 +280,18 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
     }
   }
 
+  for (const auto &nut : m_Nuts) {
+    if (nut != nullptr && !nut->IsDead()) {
+      plants.push_back(nut);
+    }
+  }
+
   return plants;
 }
 
 void App::SetupPlantCards() {
-  if (!PrepareSunflowerFrames() || !PreparePeashooterFrames()) {
+  if (!PrepareSunflowerFrames() || !PreparePeashooterFrames() ||
+      !PrepareNutFrames()) {
     return;
   }
 
@@ -280,6 +311,14 @@ void App::SetupPlantCards() {
           m_PeashooterCardGrayMask,
           "Resources/cards/peashooter.png",
           "Resources/cards/generated/peashooter_gray.png",
+      },
+      {
+          PlantCardSelection::NUT,
+          kNutCost,
+          m_NutCard,
+          m_NutCardGrayMask,
+          "Resources/cards/wall-nut.png",
+          "Resources/cards/generated/wall-nut_gray.png",
       },
   };
 
@@ -389,6 +428,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
       preview = std::make_shared<Util::Image>(m_SunflowerFramePaths.front());
     } else if (card.selection == PlantCardSelection::PEASHOOTER) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
+    } else if (card.selection == PlantCardSelection::NUT) {
+      preview = std::make_shared<Util::Image>(m_Nut1FramePaths.front());
     }
 
     if (preview == nullptr) {
@@ -506,6 +547,36 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
   return true;
 }
 
+bool App::PlaceNutAtGridCell(const int row, const int column) {
+  if (!PrepareNutFrames()) {
+    return false;
+  }
+
+  if (m_Sunlight < kNutCost) {
+    return false;
+  }
+
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  float targetHeight = 0.0F;
+  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+    return false;
+  }
+
+  auto nut = std::make_shared<Nut>(
+      m_Nut1FramePaths, static_cast<std::size_t>(m_Nut1FrameIntervalMs),
+      m_Nut2FramePaths, static_cast<std::size_t>(m_Nut2FrameIntervalMs),
+      m_Nut3FramePaths, static_cast<std::size_t>(m_Nut3FrameIntervalMs),
+      m_Nut4FramePaths, static_cast<std::size_t>(m_Nut4FrameIntervalMs),
+      targetHeight);
+  nut->m_Transform.translation = localPosition;
+
+  m_Nuts[static_cast<std::size_t>(index)] = nut;
+  m_Root.AddChild(nut);
+  m_Sunlight -= kNutCost;
+  return true;
+}
+
 bool App::RemovePlantAtGridCell(const int row, const int column) {
   const int index = row * kGridColumns + column;
   bool removed = false;
@@ -521,6 +592,13 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   if (peashooter != nullptr) {
     m_Root.RemoveChild(peashooter);
     peashooter = nullptr;
+    removed = true;
+  }
+
+  auto &nut = m_Nuts[static_cast<std::size_t>(index)];
+  if (nut != nullptr) {
+    m_Root.RemoveChild(nut);
+    nut = nullptr;
     removed = true;
   }
 
@@ -992,6 +1070,13 @@ void App::RemoveDeadPlants() {
       peashooter = nullptr;
     }
   }
+
+  for (auto &nut : m_Nuts) {
+    if (nut != nullptr && nut->IsDead()) {
+      m_Root.RemoveChild(nut);
+      nut = nullptr;
+    }
+  }
 }
 
 void App::UpdatePlantCardUIState() {
@@ -1039,6 +1124,8 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
       placed = PlaceSunflowerAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
       placed = PlacePeashooterAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::NUT) {
+      placed = PlaceNutAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::SHOVEL) {
       placed = RemovePlantAtGridCell(row, column);
     }
