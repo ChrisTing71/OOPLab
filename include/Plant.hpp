@@ -23,7 +23,7 @@ public:
   }
 
 private:
-  int m_Health = 100;
+  int m_Health = 300;
 };
 
 #endif

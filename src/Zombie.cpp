@@ -52,10 +52,20 @@ void Zombie::Update(const float dt,
   }
 
   case State::Attacking: {
-    if (m_CurrentTarget == nullptr || m_CurrentTarget->IsDead() ||
-        !CheckAABBCollision(*this, *m_CurrentTarget)) {
+    if (m_CurrentTarget == nullptr || m_CurrentTarget->IsDead()) {
       m_CurrentTarget = FindCollidingPlant(plants);
       if (m_CurrentTarget == nullptr) {
+        EnterState(State::Walking);
+        break;
+      }
+    } else {
+      // Use distance tolerance instead of AABB to prevent jittering at
+      // boundaries
+      const float distanceToTarget =
+          m_CurrentTarget->m_Transform.translation.x -
+          m_Transform.translation.x;
+      if (distanceToTarget > m_AttackRangeX) {
+        m_CurrentTarget = nullptr;
         EnterState(State::Walking);
         break;
       }

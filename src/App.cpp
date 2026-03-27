@@ -88,6 +88,58 @@ bool App::PrepareFramesFromGif(const std::string &gifPath,
   return !framePaths.empty();
 }
 
+bool App::PrepareGrayCardImage(const std::string &sourcePath,
+                               const std::string &outputPath) {
+  if (std::filesystem::exists(outputPath)) {
+    return true;
+  }
+
+  std::error_code mkdirError;
+  const auto parent = std::filesystem::path(outputPath).parent_path();
+  if (!parent.empty()) {
+    std::filesystem::create_directories(parent, mkdirError);
+  }
+
+  SDL_Surface *source = IMG_Load(sourcePath.c_str());
+  if (source == nullptr) {
+    LOG_WARN("Failed to load card image {}: {}", sourcePath, IMG_GetError());
+    return false;
+  }
+
+  SDL_Surface *rgba =
+      SDL_ConvertSurfaceFormat(source, SDL_PIXELFORMAT_RGBA32, 0);
+  SDL_FreeSurface(source);
+  if (rgba == nullptr) {
+    LOG_WARN("Failed to convert card image {}: {}", sourcePath, SDL_GetError());
+    return false;
+  }
+
+  for (int y = 0; y < rgba->h; ++y) {
+    auto *row = static_cast<Uint32 *>(static_cast<void *>(
+        static_cast<Uint8 *>(rgba->pixels) + y * rgba->pitch));
+    for (int x = 0; x < rgba->w; ++x) {
+      Uint8 r = 0;
+      Uint8 g = 0;
+      Uint8 b = 0;
+      Uint8 a = 0;
+      SDL_GetRGBA(row[x], rgba->format, &r, &g, &b, &a);
+      const Uint8 gray = static_cast<Uint8>((r * 30 + g * 59 + b * 11) / 100);
+      const Uint8 darkGray = static_cast<Uint8>(gray * 0.55F);
+      row[x] = SDL_MapRGBA(rgba->format, darkGray, darkGray, darkGray, a);
+    }
+  }
+
+  const int saveResult = IMG_SavePNG(rgba, outputPath.c_str());
+  SDL_FreeSurface(rgba);
+  if (saveResult != 0) {
+    LOG_WARN("Failed to save gray card image {}: {}", outputPath,
+             IMG_GetError());
+    return false;
+  }
+
+  return true;
+}
+
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
          m_Peashooters[static_cast<std::size_t>(index)] != nullptr;
@@ -212,6 +264,29 @@ void App::SetupPlantCards() {
     return;
   }
 
+  m_PlantCards = {
+      {
+          PlantCardSelection::SUNFLOWER,
+          kSunflowerCost,
+          m_SunflowerCard,
+          m_SunflowerCardGrayMask,
+          "Resources/cards/sunflower.png",
+          "Resources/cards/generated/sunflower_gray.png",
+      },
+      {
+          PlantCardSelection::PEASHOOTER,
+          kPeashooterCost,
+          m_PeashooterCard,
+          m_PeashooterCardGrayMask,
+          "Resources/cards/peashooter.png",
+          "Resources/cards/generated/peashooter_gray.png",
+      },
+  };
+
+  for (const auto &card : m_PlantCards) {
+    PrepareGrayCardImage(card.normalImagePath, card.disabledImagePath);
+  }
+
   const glm::vec2 sourceSize = m_CardSlot->GetSourceSize();
   const glm::vec2 slotSize = m_CardSlot->GetScaledSize();
   if (sourceSize.x <= 0.0F || sourceSize.y <= 0.0F || slotSize.x <= 0.0F ||
@@ -254,12 +329,41 @@ void App::SetupPlantCards() {
     return cardWidthSourceScaled;
   };
 
-  const float sunflowerLeft = kCardsX1 + kLeftPadding;
-  const float sunflowerWidth = setupCard(
-      m_SunflowerCard, "Resources/cards/sunflower.png", sunflowerLeft);
+  float nextLeft = kCardsX1 + kLeftPadding;
+  for (auto &card : m_PlantCards) {
+    const float width = setupCard(card.normal, card.normalImagePath, nextLeft);
 
-  const float peashooterLeft = sunflowerLeft + sunflowerWidth + kCardGap;
-  setupCard(m_PeashooterCard, "Resources/cards/peashooter.png", peashooterLeft);
+    auto disabledImage = std::make_shared<Util::Image>(card.disabledImagePath);
+    card.disabled->SetDrawable(disabledImage);
+    card.disabled->SetZIndex(12.5F);
+    card.disabled->SetVisible(false);
+    card.disabled->m_Transform.scale = card.normal->m_Transform.scale;
+    card.disabled->m_Transform.translation =
+        card.normal->m_Transform.translation;
+    m_UIRoot.AddChild(card.disabled);
+
+    nextLeft += width + kCardGap;
+  }
+
+  constexpr float kShovelShellGap = 18.0F;
+  setupCard(m_ShovelShell, "Resources/shovel/shovel_shell.png",
+            sourceSize.x + kShovelShellGap);
+  m_ShovelShell->SetZIndex(12.2F);
+  m_ShovelShell->SetVisible(false);
+
+  auto shovelImage =
+      std::make_shared<Util::Image>("Resources/shovel/shovel.png");
+  m_Shovel->SetDrawable(shovelImage);
+  m_Shovel->SetZIndex(12.8F);
+  m_Shovel->SetVisible(false);
+  if (shovelImage->GetSize().y > 0.0F) {
+    const float shovelScale =
+        (targetHeightPx / shovelImage->GetSize().y) * 0.7F;
+    m_Shovel->m_Transform.scale = {shovelScale, shovelScale};
+  }
+  m_Shovel->m_Transform.translation = m_ShovelShell->m_Transform.translation;
+  m_UIRoot.AddChild(m_ShovelShell);
+  m_UIRoot.AddChild(m_Shovel);
 
   m_SelectedPlantPreview->SetZIndex(13.0F);
   m_SelectedPlantPreview->SetVisible(false);
@@ -271,9 +375,26 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     return false;
   }
 
-  if (IsPixelInsideObject(m_SunflowerCard, pixelX, pixelY)) {
-    m_SelectedPlant = PlantCardSelection::SUNFLOWER;
-    auto preview = std::make_shared<Util::Image>(m_SunflowerFramePaths.front());
+  for (const auto &card : m_PlantCards) {
+    if (!IsPixelInsideObject(card.normal, pixelX, pixelY)) {
+      continue;
+    }
+    if (m_Sunlight < card.cost) {
+      return false;
+    }
+
+    m_SelectedPlant = card.selection;
+    std::shared_ptr<Util::Image> preview = nullptr;
+    if (card.selection == PlantCardSelection::SUNFLOWER) {
+      preview = std::make_shared<Util::Image>(m_SunflowerFramePaths.front());
+    } else if (card.selection == PlantCardSelection::PEASHOOTER) {
+      preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
+    }
+
+    if (preview == nullptr) {
+      return false;
+    }
+
     m_SelectedPlantPreview->SetDrawable(preview);
     const glm::vec2 previewSize = preview->GetSize();
     if (previewSize.y > 0.0F) {
@@ -286,17 +407,13 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     return true;
   }
 
-  if (IsPixelInsideObject(m_PeashooterCard, pixelX, pixelY)) {
-    m_SelectedPlant = PlantCardSelection::PEASHOOTER;
-    auto preview =
-        std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
+  if (IsPixelInsideObject(m_ShovelShell, pixelX, pixelY) ||
+      IsPixelInsideObject(m_Shovel, pixelX, pixelY)) {
+    m_SelectedPlant = PlantCardSelection::SHOVEL;
+
+    auto preview = std::make_shared<Util::Image>("Resources/shovel/shovel.png");
     m_SelectedPlantPreview->SetDrawable(preview);
-    const glm::vec2 previewSize = preview->GetSize();
-    if (previewSize.y > 0.0F) {
-      const float scale =
-          (ComputeGridCellTargetHeight() * 0.8F) / previewSize.y;
-      m_SelectedPlantPreview->m_Transform.scale = {scale, scale};
-    }
+    m_SelectedPlantPreview->m_Transform.scale = m_Shovel->m_Transform.scale;
     m_SelectedPlantPreview->SetVisible(true);
     UpdateSelectedPlantPreview();
     return true;
@@ -312,6 +429,12 @@ void App::UpdateSelectedPlantPreview() {
   }
 
   const glm::vec2 cursor = Util::Input::GetCursorPosition();
+  if (m_SelectedPlant == PlantCardSelection::SHOVEL) {
+    m_SelectedPlantPreview->m_Transform.translation =
+        cursor + glm::vec2(18.0F, -12.0F);
+    return;
+  }
+
   m_SelectedPlantPreview->m_Transform.translation =
       cursor + glm::vec2(34.0F, -24.0F);
 }
@@ -334,6 +457,10 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
     return false;
   }
 
+  if (m_Sunlight < kSunflowerCost) {
+    return false;
+  }
+
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
   float targetHeight = 0.0F;
@@ -348,11 +475,16 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
 
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
+  m_Sunlight -= kSunflowerCost;
   return true;
 }
 
 bool App::PlacePeashooterAtGridCell(const int row, const int column) {
   if (!PreparePeashooterFrames()) {
+    return false;
+  }
+
+  if (m_Sunlight < kPeashooterCost) {
     return false;
   }
 
@@ -370,7 +502,29 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
 
   m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
   m_Root.AddChild(peashooter);
+  m_Sunlight -= kPeashooterCost;
   return true;
+}
+
+bool App::RemovePlantAtGridCell(const int row, const int column) {
+  const int index = row * kGridColumns + column;
+  bool removed = false;
+
+  auto &sunflower = m_Sunflowers[static_cast<std::size_t>(index)];
+  if (sunflower != nullptr) {
+    m_Root.RemoveChild(sunflower);
+    sunflower = nullptr;
+    removed = true;
+  }
+
+  auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
+  if (peashooter != nullptr) {
+    m_Root.RemoveChild(peashooter);
+    peashooter = nullptr;
+    removed = true;
+  }
+
+  return removed;
 }
 
 void App::SpawnFallingSun() {
@@ -472,7 +626,7 @@ void App::UpdateSuns(const float deltaTime) {
   m_SunSpawnCountdown -= deltaTime;
   if (m_SunSpawnCountdown <= 0.0F) {
     SpawnFallingSun();
-    m_SunSpawnCountdown = 12.0F;
+    m_SunSpawnCountdown = 8.0F;
   }
 
   for (const auto &sunflower : m_Sunflowers) {
@@ -643,7 +797,7 @@ void App::UpdateBasicZombie(const float deltaTime) {
   m_BasicZombie = std::make_shared<BasicZombie>(
       m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
       m_BasicZombieDeadFramePaths,
-      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs));
+      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
   m_BasicZombie->m_Transform.translation = spawnPos;
 
   const glm::vec2 zombieSize = m_BasicZombie->GetScaledSize();
@@ -824,6 +978,80 @@ bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
   return false;
 }
 
+void App::RemoveDeadPlants() {
+  for (auto &sunflower : m_Sunflowers) {
+    if (sunflower != nullptr && sunflower->IsDead()) {
+      m_Root.RemoveChild(sunflower);
+      sunflower = nullptr;
+    }
+  }
+
+  for (auto &peashooter : m_Peashooters) {
+    if (peashooter != nullptr && peashooter->IsDead()) {
+      m_Root.RemoveChild(peashooter);
+      peashooter = nullptr;
+    }
+  }
+}
+
+void App::UpdatePlantCardUIState() {
+  if (m_CameraStage != CameraStage::FINISHED) {
+    return;
+  }
+
+  for (const auto &card : m_PlantCards) {
+    card.normal->SetVisible(true);
+    card.disabled->SetVisible(m_Sunlight < card.cost);
+  }
+  m_ShovelShell->SetVisible(true);
+  m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
+}
+
+void App::ClearSelectedPlantTool() {
+  m_SelectedPlant = PlantCardSelection::NONE;
+  m_SelectedPlantPreview->SetVisible(false);
+}
+
+void App::HandleGridClick(const float xPercent, const float yPercent,
+                          const bool collectedSun, const bool selectedCard) {
+  const bool insideGrid =
+      (xPercent >= kGridMinXPercent && xPercent <= kGridMaxXPercent) &&
+      (yPercent >= kGridMinYPercent && yPercent <= kGridMaxYPercent);
+
+  if (!collectedSun && !selectedCard && insideGrid &&
+      m_SelectedPlant != PlantCardSelection::NONE) {
+    const float normalizedX =
+        (xPercent - kGridMinXPercent) / (kGridMaxXPercent - kGridMinXPercent);
+    const float normalizedY =
+        (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent);
+
+    const int column = glm::clamp(static_cast<int>(normalizedX * kGridColumns),
+                                  0, kGridColumns - 1);
+    const int row =
+        glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
+
+    m_LastHitColumn = column + 1;
+    m_LastHitRow = row + 1;
+    m_HasGridHit = true;
+
+    bool placed = false;
+    if (m_SelectedPlant == PlantCardSelection::SUNFLOWER) {
+      placed = PlaceSunflowerAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
+      placed = PlacePeashooterAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::SHOVEL) {
+      placed = RemovePlantAtGridCell(row, column);
+    }
+
+    if (placed && m_SelectedPlant != PlantCardSelection::SHOVEL) {
+      ClearSelectedPlantTool();
+    }
+    return;
+  }
+
+  m_HasGridHit = false;
+}
+
 void App::RemoveSunAt(const std::size_t index) {
   m_UIRoot.RemoveChild(m_Suns[index].object);
   m_Suns.erase(m_Suns.begin() + static_cast<long>(index));
@@ -931,7 +1159,7 @@ void App::Start() {
 
   m_BasicZombieStandReady = false;
   m_BasicZombieStartedWalking = false;
-  m_BasicZombieMoveDelayCountdown = 15.0F;
+  m_BasicZombieMoveDelayCountdown = 40.0F;
   m_BasicZombie = nullptr;
 
   m_CurrentState = State::UPDATE;
@@ -998,8 +1226,8 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
       m_SunSystemStarted = true;
-      m_SunSpawnCountdown = 8.0F;
-      m_BasicZombieMoveDelayCountdown = 15.0F;
+      m_SunSpawnCountdown = 6.0F;
+      m_BasicZombieMoveDelayCountdown = 40.0F;
     }
     break;
   }
@@ -1009,6 +1237,8 @@ void App::UpdateCamera(const float deltaTime) {
     m_CardSlot->SetVisible(true);
     m_SunflowerCard->SetVisible(true);
     m_PeashooterCard->SetVisible(true);
+    m_ShovelShell->SetVisible(true);
+    m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
     break;
   }
 
@@ -1025,9 +1255,11 @@ void App::Update() {
   UpdateBasicZombie(deltaTime);
   UpdatePeashooterCombat(deltaTime);
 
+  RemoveDeadPlants();
+  UpdatePlantCardUIState();
+
   if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_RB)) {
-    m_SelectedPlant = PlantCardSelection::NONE;
-    m_SelectedPlantPreview->SetVisible(false);
+    ClearSelectedPlantTool();
   }
 
   if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_LB)) {
@@ -1047,40 +1279,7 @@ void App::Update() {
     const bool collectedSun = TryCollectSunAt(pixelX, pixelY);
     const bool selectedCard = TrySelectPlantCardAt(pixelX, pixelY);
 
-    const bool insideGrid =
-        (xPercent >= kGridMinXPercent && xPercent <= kGridMaxXPercent) &&
-        (yPercent >= kGridMinYPercent && yPercent <= kGridMaxYPercent);
-
-    if (!collectedSun && !selectedCard && insideGrid &&
-        m_SelectedPlant != PlantCardSelection::NONE) {
-      const float normalizedX =
-          (xPercent - kGridMinXPercent) / (kGridMaxXPercent - kGridMinXPercent);
-      const float normalizedY =
-          (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent);
-
-      const int column = glm::clamp(
-          static_cast<int>(normalizedX * kGridColumns), 0, kGridColumns - 1);
-      const int row = glm::clamp(static_cast<int>(normalizedY * kGridRows), 0,
-                                 kGridRows - 1);
-
-      m_LastHitColumn = column + 1;
-      m_LastHitRow = row + 1;
-      m_HasGridHit = true;
-
-      bool placed = false;
-      if (m_SelectedPlant == PlantCardSelection::SUNFLOWER) {
-        placed = PlaceSunflowerAtGridCell(row, column);
-      } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
-        placed = PlacePeashooterAtGridCell(row, column);
-      }
-
-      if (placed) {
-        m_SelectedPlant = PlantCardSelection::NONE;
-        m_SelectedPlantPreview->SetVisible(false);
-      }
-    } else {
-      m_HasGridHit = false;
-    }
+    HandleGridClick(xPercent, yPercent, collectedSun, selectedCard);
   }
 
   UpdateSelectedPlantPreview();

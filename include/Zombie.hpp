@@ -34,14 +34,16 @@ private:
   FindCollidingPlant(const std::vector<std::shared_ptr<Plant>> &plants) const;
   void EnterState(State newState);
 
-private:
+  static constexpr float m_AttackRangeX =
+      100.0F; // Tolerance distance to keep attacking
+
   State m_State = State::Walking;
   bool m_Destroyed = false;
 
   float m_MoveSpeedPxPerSec = 40.0F;
   int m_Health = 200;
 
-  int m_AttackDamage = 20;
+  int m_AttackDamage = 100;
   float m_AttackIntervalSec = 1.0F;
   float m_AttackElapsed = 0.0F;
 

@@ -64,6 +64,16 @@ public:
     NONE,
     SUNFLOWER,
     PEASHOOTER,
+    SHOVEL,
+  };
+
+  struct PlantCardUI {
+    PlantCardSelection selection = PlantCardSelection::NONE;
+    int cost = 0;
+    std::shared_ptr<Util::GameObject> normal = nullptr;
+    std::shared_ptr<Util::GameObject> disabled = nullptr;
+    std::string normalImagePath;
+    std::string disabledImagePath;
   };
 
 private:
@@ -73,6 +83,8 @@ private:
                             const std::string &framePrefix,
                             std::vector<std::string> &framePaths,
                             int &frameIntervalMs);
+  bool PrepareGrayCardImage(const std::string &sourcePath,
+                            const std::string &outputPath);
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   bool PreparePeashooterFrames();
@@ -83,6 +95,7 @@ private:
                              float &targetHeight) const;
   bool PlaceSunflowerAtGridCell(int row, int column);
   bool PlacePeashooterAtGridCell(int row, int column);
+  bool RemovePlantAtGridCell(int row, int column);
   void SetupPlantCards();
   bool TrySelectPlantCardAt(float pixelX, float pixelY);
   void UpdateSelectedPlantPreview();
@@ -98,6 +111,11 @@ private:
   void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
   bool HasAliveZombieInRow(int row, float shooterX) const;
   bool TryCollectSunAt(float pixelX, float pixelY);
+  void RemoveDeadPlants();
+  void UpdatePlantCardUIState();
+  void ClearSelectedPlantTool();
+  void HandleGridClick(float xPercent, float yPercent, bool collectedSun,
+                       bool selectedCard);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
   glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
   float GridRowCenterPercent(int row) const;
@@ -113,6 +131,9 @@ private:
   static constexpr int kGridColumns = 9;
   static constexpr int kGridRows = 5;
   static constexpr int kGridCellCount = kGridColumns * kGridRows;
+
+  static constexpr int kSunflowerCost = 50;
+  static constexpr int kPeashooterCost = 100;
 
 private:
   State m_CurrentState = State::START;
@@ -169,15 +190,24 @@ private:
   bool m_BasicZombieStartedWalking = false;
   int m_BasicZombieRow = 0;
   float m_BasicZombieStandYPercent = 0.0F;
-  float m_BasicZombieMoveDelayCountdown = 15.0F;
+  float m_BasicZombieMoveDelayCountdown = 40.0F;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_PeashooterCard =
       std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_SunflowerCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_PeashooterCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_ShovelShell =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_Shovel =
+      std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_SelectedPlantPreview =
       std::make_shared<Util::GameObject>();
+  std::vector<PlantCardUI> m_PlantCards;
 
   PlantCardSelection m_SelectedPlant = PlantCardSelection::NONE;
   Util::Renderer m_UIRoot;
