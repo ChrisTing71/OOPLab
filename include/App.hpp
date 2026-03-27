@@ -5,7 +5,9 @@
 
 #include "pch.hpp" // IWYU pragma: export
 
+#include "BasicZombie.hpp"
 #include "CardSlot.hpp"
+#include "Peashooter.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
@@ -52,16 +54,72 @@ public:
     bool fromSky = false;
   };
 
+  struct ActivePea {
+    std::shared_ptr<Util::GameObject> object;
+    bool hitting = false;
+    std::shared_ptr<Util::Animation> hitAnimation = nullptr;
+  };
+
+  enum class PlantCardSelection {
+    NONE,
+    SUNFLOWER,
+    PEASHOOTER,
+    SHOVEL,
+  };
+
+  struct PlantCardUI {
+    PlantCardSelection selection = PlantCardSelection::NONE;
+    int cost = 0;
+    std::shared_ptr<Util::GameObject> normal = nullptr;
+    std::shared_ptr<Util::GameObject> disabled = nullptr;
+    std::string normalImagePath;
+    std::string disabledImagePath;
+  };
+
 private:
   void ValidTask();
+  bool PrepareFramesFromGif(const std::string &gifPath,
+                            const std::string &framesDir,
+                            const std::string &framePrefix,
+                            std::vector<std::string> &framePaths,
+                            int &frameIntervalMs);
+  bool PrepareGrayCardImage(const std::string &sourcePath,
+                            const std::string &outputPath);
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
-  void PlaceSunflowerAtGridCell(int row, int column);
+  bool PreparePeashooterFrames();
+  bool PreparePeashooterAttackFrames();
+  bool PrepareBasicZombieFrames();
+  bool PreparePlantPlacement(int row, int column, int &index,
+                             glm::vec2 &localPosition,
+                             float &targetHeight) const;
+  bool PlaceSunflowerAtGridCell(int row, int column);
+  bool PlacePeashooterAtGridCell(int row, int column);
+  bool RemovePlantAtGridCell(int row, int column);
+  void SetupPlantCards();
+  bool TrySelectPlantCardAt(float pixelX, float pixelY);
+  void UpdateSelectedPlantPreview();
+  bool IsCellOccupied(int index) const;
+  glm::vec2 ComputeGridCellLocalPosition(int row, int column) const;
+  float ComputeGridCellTargetHeight() const;
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
+  void SetupBasicZombieStand();
+  void UpdateBasicZombie(float deltaTime);
+  void UpdatePeashooterCombat(float deltaTime);
+  void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
+  bool HasAliveZombieInRow(int row, float shooterX) const;
   bool TryCollectSunAt(float pixelX, float pixelY);
+  void RemoveDeadPlants();
+  void UpdatePlantCardUIState();
+  void ClearSelectedPlantTool();
+  void HandleGridClick(float xPercent, float yPercent, bool collectedSun,
+                       bool selectedCard);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
+  glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
+  float GridRowCenterPercent(int row) const;
+  std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
 
@@ -73,6 +131,9 @@ private:
   static constexpr int kGridColumns = 9;
   static constexpr int kGridRows = 5;
   static constexpr int kGridCellCount = kGridColumns * kGridRows;
+
+  static constexpr int kSunflowerCost = 50;
+  static constexpr int kPeashooterCost = 100;
 
 private:
   State m_CurrentState = State::START;
@@ -98,9 +159,57 @@ private:
 
   std::vector<std::string> m_SunflowerFramePaths;
   int m_SunflowerFrameIntervalMs = 100;
+  std::vector<std::string> m_PeashooterFramePaths;
+  int m_PeashooterFrameIntervalMs = 100;
+  std::vector<std::string> m_PeashooterAttackFramePaths;
+  int m_PeashooterAttackFrameIntervalMs = 100;
+  std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
+  std::vector<ActivePea> m_Peas;
+  std::vector<std::string> m_PeaHitFramePaths = {
+      "Resources/peashooter_bullet/hit1.png",
+      "Resources/peashooter_bullet/hit2.png",
+      "Resources/peashooter_bullet/hit3.png",
+      "Resources/peashooter_bullet/hit4.png",
+  };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
+  std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
+
+  std::vector<std::string> m_BasicZombieStandFramePaths;
+  int m_BasicZombieStandFrameIntervalMs = 120;
+  std::vector<std::string> m_BasicZombieWalkFramePaths;
+  int m_BasicZombieWalkFrameIntervalMs = 120;
+  std::vector<std::string> m_BasicZombieEatFramePaths;
+  int m_BasicZombieEatFrameIntervalMs = 120;
+  std::vector<std::string> m_BasicZombieDeadFramePaths;
+  int m_BasicZombieDeadFrameIntervalMs = 120;
+
+  std::shared_ptr<Util::GameObject> m_BasicZombieStand =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<BasicZombie> m_BasicZombie = nullptr;
+  bool m_BasicZombieStandReady = false;
+  bool m_BasicZombieStartedWalking = false;
+  int m_BasicZombieRow = 0;
+  float m_BasicZombieStandYPercent = 0.0F;
+  float m_BasicZombieMoveDelayCountdown = 40.0F;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
+  std::shared_ptr<Util::GameObject> m_SunflowerCard =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_PeashooterCard =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_SunflowerCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_PeashooterCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_ShovelShell =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_Shovel =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_SelectedPlantPreview =
+      std::make_shared<Util::GameObject>();
+  std::vector<PlantCardUI> m_PlantCards;
+
+  PlantCardSelection m_SelectedPlant = PlantCardSelection::NONE;
   Util::Renderer m_UIRoot;
 
   bool m_SunSystemStarted = false;
