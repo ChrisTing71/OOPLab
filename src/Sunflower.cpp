@@ -4,7 +4,7 @@
 
 Sunflower::Sunflower(const std::vector<std::string> &framePaths,
                      const std::size_t frameIntervalMs,
-                     const float targetHeight) {
+                     const float targetHeightPx) {
   auto animation = std::make_shared<Util::Animation>(framePaths, true,
                                                      frameIntervalMs, true, 0);
 
@@ -13,7 +13,7 @@ Sunflower::Sunflower(const std::vector<std::string> &framePaths,
 
   const float drawableHeight = animation->GetSize().y;
   if (drawableHeight > 0.0F) {
-    const float uniformScale = targetHeight / drawableHeight;
+    const float uniformScale = targetHeightPx / drawableHeight;
     m_Transform.scale = {uniformScale, uniformScale};
   }
 }

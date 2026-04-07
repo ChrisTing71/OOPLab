@@ -15,8 +15,8 @@ glm::vec2 MaxCorner(const Util::GameObject &obj) {
 Zombie::Zombie(const std::vector<std::string> &walkingFrames,
                const std::vector<std::string> &attackingFrames,
                const std::vector<std::string> &dyingFrames,
-               const std::size_t frameIntervalMs, const float moveSpeedPxPerSec,
-               const int health)
+               const float targetHeightPx, const std::size_t frameIntervalMs,
+               const float moveSpeedPxPerSec, const int health)
     : m_MoveSpeedPxPerSec(moveSpeedPxPerSec), m_Health(glm::max(1, health)) {
   if (!walkingFrames.empty()) {
     m_WalkingAnimation = std::make_shared<Util::Animation>(
@@ -33,6 +33,15 @@ Zombie::Zombie(const std::vector<std::string> &walkingFrames,
 
   SetZIndex(1.0F);
   EnterState(State::Walking);
+
+  if (targetHeightPx > 0.0F) {
+    const float drawableHeight =
+        GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
+    if (drawableHeight > 0.0F) {
+      const float scale = targetHeightPx / drawableHeight;
+      m_Transform.scale = {scale, scale};
+    }
+  }
 }
 
 void Zombie::Update(const float dt,

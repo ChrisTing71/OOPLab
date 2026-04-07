@@ -14,7 +14,7 @@ public:
   int GetHealth() const { return m_Health; }
   bool IsDead() const { return m_Health <= 0; }
 
-  void TakeDamage(const int amount) {
+  virtual void TakeDamage(const int amount) {
     if (amount <= 0 || IsDead()) {
       return;
     }

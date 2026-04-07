@@ -7,6 +7,7 @@
 
 #include "BasicZombie.hpp"
 #include "CardSlot.hpp"
+#include "Nut.hpp"
 #include "Peashooter.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
@@ -64,6 +65,7 @@ public:
     NONE,
     SUNFLOWER,
     PEASHOOTER,
+    NUT,
     SHOVEL,
   };
 
@@ -88,13 +90,14 @@ private:
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
   bool PreparePeashooterFrames();
+  bool PrepareNutFrames();
   bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
-                             glm::vec2 &localPosition,
-                             float &targetHeight) const;
+                             glm::vec2 &localPosition) const;
   bool PlaceSunflowerAtGridCell(int row, int column);
   bool PlacePeashooterAtGridCell(int row, int column);
+  bool PlaceNutAtGridCell(int row, int column);
   bool RemovePlantAtGridCell(int row, int column);
   void SetupPlantCards();
   bool TrySelectPlantCardAt(float pixelX, float pixelY);
@@ -102,6 +105,10 @@ private:
   bool IsCellOccupied(int index) const;
   glm::vec2 ComputeGridCellLocalPosition(int row, int column) const;
   float ComputeGridCellTargetHeight() const;
+  float ComputePlantTargetHeight() const;
+  float ComputeZombieTargetHeight() const;
+  float ComputePeaTargetHeight() const;
+  float ComputePlantPreviewTargetHeight() const;
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
@@ -134,6 +141,7 @@ private:
 
   static constexpr int kSunflowerCost = 50;
   static constexpr int kPeashooterCost = 100;
+  static constexpr int kNutCost = 50;
 
 private:
   State m_CurrentState = State::START;
@@ -161,6 +169,14 @@ private:
   int m_SunflowerFrameIntervalMs = 100;
   std::vector<std::string> m_PeashooterFramePaths;
   int m_PeashooterFrameIntervalMs = 100;
+  std::vector<std::string> m_Nut1FramePaths;
+  int m_Nut1FrameIntervalMs = 100;
+  std::vector<std::string> m_Nut2FramePaths;
+  int m_Nut2FrameIntervalMs = 100;
+  std::vector<std::string> m_Nut3FramePaths;
+  int m_Nut3FrameIntervalMs = 100;
+  std::vector<std::string> m_Nut4FramePaths;
+  int m_Nut4FrameIntervalMs = 100;
   std::vector<std::string> m_PeashooterAttackFramePaths;
   int m_PeashooterAttackFrameIntervalMs = 100;
   std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
@@ -173,6 +189,7 @@ private:
   };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
   std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
+  std::array<std::shared_ptr<Nut>, kGridCellCount> m_Nuts{};
 
   std::vector<std::string> m_BasicZombieStandFramePaths;
   int m_BasicZombieStandFrameIntervalMs = 120;
@@ -197,9 +214,13 @@ private:
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_PeashooterCard =
       std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_NutCard =
+      std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_SunflowerCardGrayMask =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_PeashooterCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_NutCardGrayMask =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_ShovelShell =
       std::make_shared<Util::GameObject>();

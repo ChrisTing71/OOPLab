@@ -8,9 +8,9 @@ class Peashooter : public Plant {
 public:
   // framePaths    - extracted PNG frames from the GIF
   // frameInterval - milliseconds per frame
-  // targetHeight  - desired height in pixels (image is scaled proportionally)
+  // targetHeightPx - externally provided sprite height in pixels
   Peashooter(const std::vector<std::string> &framePaths,
-             std::size_t frameIntervalMs, float targetHeight);
+             std::size_t frameIntervalMs, float targetHeightPx);
 
   bool StartAttack(const std::vector<std::string> &framePaths,
                    std::size_t frameIntervalMs);
@@ -18,10 +18,10 @@ public:
   bool IsAttacking() const { return m_AttackAnimation != nullptr; }
 
 private:
-  void ApplyScaleForCurrentDrawable(float targetHeight);
+  void ApplyScaleForCurrentDrawable(float targetHeightPx);
 
 private:
-  float m_TargetHeight = 0.0F;
+  float m_TargetHeightPx = 0.0F;
   bool m_HasShotCurrentAttack = false;
   std::shared_ptr<Util::Animation> m_IdleAnimation = nullptr;
   std::shared_ptr<Util::Animation> m_AttackAnimation = nullptr;

@@ -7,9 +7,9 @@ class Sunflower : public Plant {
 public:
   // framePaths    - extracted PNG frames from the GIF
   // frameInterval - milliseconds per frame
-  // targetHeight  - desired height in pixels (image is scaled proportionally)
+  // targetHeightPx - externally provided sprite height in pixels
   Sunflower(const std::vector<std::string> &framePaths,
-            std::size_t frameIntervalMs, float targetHeight);
+            std::size_t frameIntervalMs, float targetHeightPx);
 
   bool ShouldProduceSun(float deltaTime);
   void OnProducedSunCollected();

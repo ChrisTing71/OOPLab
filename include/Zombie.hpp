@@ -16,7 +16,7 @@ public:
 
   Zombie(const std::vector<std::string> &walkingFrames,
          const std::vector<std::string> &attackingFrames,
-         const std::vector<std::string> &dyingFrames,
+         const std::vector<std::string> &dyingFrames, float targetHeightPx,
          std::size_t frameIntervalMs = 120, float moveSpeedPxPerSec = 40.0F,
          int health = 200);
 
