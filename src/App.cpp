@@ -17,6 +17,25 @@ float Lerp(const float from, const float to, const float t) {
   return from + (to - from) * glm::clamp(t, 0.0F, 1.0F);
 }
 
+bool CheckCustomAABBCollision(const Util::GameObject &a,
+                              const Util::GameObject &b, const glm::vec2 aScale,
+                              const glm::vec2 bScale, const glm::vec2 aOffset,
+                              const glm::vec2 bOffset) {
+  const glm::vec2 aSize = a.GetScaledSize() * aScale;
+  const glm::vec2 bSize = b.GetScaledSize() * bScale;
+  const glm::vec2 aCenter = a.m_Transform.translation + aOffset;
+  const glm::vec2 bCenter = b.m_Transform.translation + bOffset;
+
+  const glm::vec2 aMin = aCenter - aSize * 0.5F;
+  const glm::vec2 aMax = aCenter + aSize * 0.5F;
+  const glm::vec2 bMin = bCenter - bSize * 0.5F;
+  const glm::vec2 bMax = bCenter + bSize * 0.5F;
+
+  const bool overlapX = aMin.x <= bMax.x && aMax.x >= bMin.x;
+  const bool overlapY = aMin.y <= bMax.y && aMax.y >= bMin.y;
+  return overlapX && overlapY;
+}
+
 bool IsPixelInsideObject(const std::shared_ptr<Util::GameObject> &object,
                          const float pixelX, const float pixelY) {
   const glm::vec2 size = object->GetScaledSize();
@@ -179,6 +198,22 @@ float App::ComputeGridCellTargetHeight() const {
   const float cellHeightPixel =
       (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
   return cellHeightPixel * 0.7F;
+}
+
+float App::ComputePlantTargetHeight() const {
+  return ComputeGridCellTargetHeight();
+}
+
+float App::ComputeZombieTargetHeight() const {
+  return ComputeGridCellTargetHeight() * 1.5F;
+}
+
+float App::ComputePeaTargetHeight() const {
+  return ComputeGridCellTargetHeight() * 0.22F;
+}
+
+float App::ComputePlantPreviewTargetHeight() const {
+  return ComputePlantTargetHeight() * 0.9F;
 }
 
 bool App::PrepareSunflowerFrames() {
@@ -439,8 +474,7 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     m_SelectedPlantPreview->SetDrawable(preview);
     const glm::vec2 previewSize = preview->GetSize();
     if (previewSize.y > 0.0F) {
-      const float scale =
-          (ComputeGridCellTargetHeight() * 0.8F) / previewSize.y;
+      const float scale = ComputePlantPreviewTargetHeight() / previewSize.y;
       m_SelectedPlantPreview->m_Transform.scale = {scale, scale};
     }
     m_SelectedPlantPreview->SetVisible(true);
@@ -481,15 +515,13 @@ void App::UpdateSelectedPlantPreview() {
 }
 
 bool App::PreparePlantPlacement(const int row, const int column, int &index,
-                                glm::vec2 &localPosition,
-                                float &targetHeight) const {
+                                glm::vec2 &localPosition) const {
   index = row * kGridColumns + column;
   if (IsCellOccupied(index)) {
     return false;
   }
 
   localPosition = ComputeGridCellLocalPosition(row, column);
-  targetHeight = ComputeGridCellTargetHeight();
   return true;
 }
 
@@ -504,14 +536,14 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
 
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
-  float targetHeight = 0.0F;
-  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
     return false;
   }
 
   auto sunflower = std::make_shared<Sunflower>(
       m_SunflowerFramePaths,
-      static_cast<std::size_t>(m_SunflowerFrameIntervalMs), targetHeight);
+      static_cast<std::size_t>(m_SunflowerFrameIntervalMs),
+      ComputePlantTargetHeight());
   sunflower->m_Transform.translation = localPosition;
 
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
@@ -531,14 +563,14 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
 
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
-  float targetHeight = 0.0F;
-  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
     return false;
   }
 
   auto peashooter = std::make_shared<Peashooter>(
       m_PeashooterFramePaths,
-      static_cast<std::size_t>(m_PeashooterFrameIntervalMs), targetHeight);
+      static_cast<std::size_t>(m_PeashooterFrameIntervalMs),
+      ComputePlantTargetHeight());
   peashooter->m_Transform.translation = localPosition;
 
   m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
@@ -558,8 +590,7 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
 
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
-  float targetHeight = 0.0F;
-  if (!PreparePlantPlacement(row, column, index, localPosition, targetHeight)) {
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
     return false;
   }
 
@@ -568,7 +599,7 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
       m_Nut2FramePaths, static_cast<std::size_t>(m_Nut2FrameIntervalMs),
       m_Nut3FramePaths, static_cast<std::size_t>(m_Nut3FrameIntervalMs),
       m_Nut4FramePaths, static_cast<std::size_t>(m_Nut4FrameIntervalMs),
-      targetHeight);
+      ComputePlantTargetHeight());
   nut->m_Transform.translation = localPosition;
 
   m_Nuts[static_cast<std::size_t>(index)] = nut;
@@ -827,7 +858,7 @@ void App::SetupBasicZombieStand() {
   m_BasicZombieStand->m_Transform.translation = standLocalPos;
 
   const glm::vec2 standSize = standAnim->GetSize();
-  const float targetHeight = ComputeGridCellTargetHeight() * 1.5F;
+  const float targetHeight = ComputeZombieTargetHeight();
   if (standSize.y > 0.0F) {
     const float scale = targetHeight / standSize.y;
     m_BasicZombieStand->m_Transform.scale = {scale, scale};
@@ -874,16 +905,9 @@ void App::UpdateBasicZombie(const float deltaTime) {
 
   m_BasicZombie = std::make_shared<BasicZombie>(
       m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths,
+      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
       static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
   m_BasicZombie->m_Transform.translation = spawnPos;
-
-  const glm::vec2 zombieSize = m_BasicZombie->GetScaledSize();
-  const float targetHeight = ComputeGridCellTargetHeight() * 1.5F;
-  if (zombieSize.y > 0.0F) {
-    const float scale = targetHeight / zombieSize.y;
-    m_BasicZombie->m_Transform.scale = {scale, scale};
-  }
 
   m_Root.AddChild(m_BasicZombie);
   m_BasicZombieStartedWalking = true;
@@ -911,7 +935,7 @@ void App::SpawnPeaFromPeashooter(
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
-  const float targetHeight = ComputeGridCellTargetHeight() * 0.22F;
+  const float targetHeight = ComputePeaTargetHeight();
   const glm::vec2 peaNaturalSize = peaImage->GetSize();
   if (peaNaturalSize.y > 0.0F) {
     const float scale = targetHeight / peaNaturalSize.y;
@@ -989,8 +1013,17 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
       }
 
       if (m_BasicZombie != nullptr && !m_BasicZombie->IsDestroyed() &&
-          Zombie::CheckAABBCollision(*pea.object, *m_BasicZombie)) {
+          CheckCustomAABBCollision(
+              *pea.object, *m_BasicZombie,
+              glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
+              glm::vec2(0.48F, 0.80F), // zombie: focus torso region
+              glm::vec2(0.0F, 0.0F),
+              glm::vec2(-m_BasicZombie->GetScaledSize().x * 0.10F, 0.0F))) {
         m_BasicZombie->TakeDamage(20);
+
+        const glm::vec2 zombieSize = m_BasicZombie->GetScaledSize();
+        pea.object->m_Transform.translation.x =
+            m_BasicZombie->m_Transform.translation.x - zombieSize.x * 0.20F;
 
         auto hitAnim = std::make_shared<Util::Animation>(
             m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);

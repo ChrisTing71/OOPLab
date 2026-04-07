@@ -4,14 +4,14 @@
 
 Peashooter::Peashooter(const std::vector<std::string> &framePaths,
                        const std::size_t frameIntervalMs,
-                       const float targetHeight) {
-  m_TargetHeight = targetHeight;
+                       const float targetHeightPx) {
+  m_TargetHeightPx = targetHeightPx;
   m_IdleAnimation = std::make_shared<Util::Animation>(framePaths, true,
                                                       frameIntervalMs, true, 0);
 
   SetDrawable(m_IdleAnimation);
   SetZIndex(1.0F);
-  ApplyScaleForCurrentDrawable(targetHeight);
+  ApplyScaleForCurrentDrawable(targetHeightPx);
 }
 
 bool Peashooter::StartAttack(const std::vector<std::string> &framePaths,
@@ -24,7 +24,7 @@ bool Peashooter::StartAttack(const std::vector<std::string> &framePaths,
       framePaths, true, frameIntervalMs, false, 0);
   m_HasShotCurrentAttack = false;
   SetDrawable(m_AttackAnimation);
-  ApplyScaleForCurrentDrawable(m_TargetHeight);
+  ApplyScaleForCurrentDrawable(m_TargetHeightPx);
   return true;
 }
 
@@ -45,17 +45,17 @@ bool Peashooter::UpdateAttackStateAndCheckShoot() {
     m_AttackAnimation = nullptr;
     m_HasShotCurrentAttack = false;
     SetDrawable(m_IdleAnimation);
-    ApplyScaleForCurrentDrawable(m_TargetHeight);
+    ApplyScaleForCurrentDrawable(m_TargetHeightPx);
   }
 
   return shouldShoot;
 }
 
-void Peashooter::ApplyScaleForCurrentDrawable(const float targetHeight) {
+void Peashooter::ApplyScaleForCurrentDrawable(const float targetHeightPx) {
   const float drawableHeight =
       GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
   if (drawableHeight > 0.0F) {
-    const float uniformScale = targetHeight / drawableHeight;
+    const float uniformScale = targetHeightPx / drawableHeight;
     m_Transform.scale = {uniformScale, uniformScale};
   }
 }

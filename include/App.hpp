@@ -94,8 +94,7 @@ private:
   bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
-                             glm::vec2 &localPosition,
-                             float &targetHeight) const;
+                             glm::vec2 &localPosition) const;
   bool PlaceSunflowerAtGridCell(int row, int column);
   bool PlacePeashooterAtGridCell(int row, int column);
   bool PlaceNutAtGridCell(int row, int column);
@@ -106,6 +105,10 @@ private:
   bool IsCellOccupied(int index) const;
   glm::vec2 ComputeGridCellLocalPosition(int row, int column) const;
   float ComputeGridCellTargetHeight() const;
+  float ComputePlantTargetHeight() const;
+  float ComputeZombieTargetHeight() const;
+  float ComputePeaTargetHeight() const;
+  float ComputePlantPreviewTargetHeight() const;
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
