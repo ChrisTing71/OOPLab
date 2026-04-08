@@ -1,0 +1,50 @@
+{
+    "levelId": 4,
+    "name": "Level 4 - Peak Pressure",
+    "description": "The largest waves yet. Prepare your garden carefully.",
+    "sceneType": "day",
+    "initialSunAmount": 75,
+    "difficultyBadge": "Medium",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 25.0,
+            "repeat": 1,
+            "zombiesPerWave": 2,
+            "spawnIntervalSec": 1.0,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 10.0,
+            "repeat": 5,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 1.0,
+            "waveIntervalSec": 7.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 8.0,
+            "repeat": 1,
+            "zombiesPerWave": 8,
+            "spawnIntervalSec": 1.5,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "cherry_bomb"
+        ],
+        "sunAmountReward": 125
+    }
+}

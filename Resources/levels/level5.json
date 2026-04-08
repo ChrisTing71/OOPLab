@@ -1,0 +1,50 @@
+{
+    "levelId": 5,
+    "name": "Level 5 - Night Falls",
+    "description": "Darkness brings harder challenges. Stay vigilant.",
+    "sceneType": "night",
+    "initialSunAmount": 50,
+    "difficultyBadge": "Medium",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 20.0,
+            "repeat": 1,
+            "zombiesPerWave": 2,
+            "spawnIntervalSec": 1.0,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 8.0,
+            "repeat": 6,
+            "zombiesPerWave": 4,
+            "spawnIntervalSec": 0.8,
+            "waveIntervalSec": 6.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 5.0,
+            "repeat": 1,
+            "zombiesPerWave": 10,
+            "spawnIntervalSec": 1.2,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "tall_nut"
+        ],
+        "sunAmountReward": 150
+    }
+}

@@ -2,6 +2,9 @@ set(SRC_FILES
     App.cpp
     BasicZombie.cpp
     CardSlot.cpp
+    LevelConfig.cpp
+    LevelManager.cpp
+    MenuScene.cpp
     Nut.cpp
     Peashooter.cpp
     Sun.cpp
@@ -14,6 +17,9 @@ set(INCLUDE_FILES
     App.hpp
     BasicZombie.hpp
     CardSlot.hpp
+    LevelConfig.hpp
+    LevelManager.hpp
+    MenuScene.hpp
     Nut.hpp
     Peashooter.hpp
     Plant.hpp

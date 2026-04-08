@@ -1,0 +1,50 @@
+{
+    "levelId": 10,
+    "name": "Level 10 - Endless Mode",
+    "description": "The ultimate challenge. Can you survive forever?",
+    "sceneType": "night",
+    "initialSunAmount": 200,
+    "difficultyBadge": "Hard",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 10.0,
+            "repeat": 1,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 0.6,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 2.0,
+            "repeat": 12,
+            "zombiesPerWave": 6,
+            "spawnIntervalSec": 0.3,
+            "waveIntervalSec": 1.5,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 1.0,
+            "repeat": 1,
+            "zombiesPerWave": 25,
+            "spawnIntervalSec": 0.4,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "gold_magnet"
+        ],
+        "sunAmountReward": 300
+    }
+}

@@ -1368,74 +1368,13 @@ void App::DrawSunlightCounter() const {
 void App::Start() {
   LOG_TRACE("Start");
 
-  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
-  m_Map->SetZIndex(0.0F);
-  m_Map->m_Transform.translation = {0.0F, 0.0F};
+  // Initialize level manager
+  m_LevelManager = std::make_shared<LevelManager>();
+  m_MenuScene = std::make_shared<MenuScene>(m_LevelManager);
 
-  const glm::vec2 mapSize = m_Map->GetScaledSize();
-  constexpr float kZoom = 1.3F;
-  m_Map->m_Transform.scale = {
-      (static_cast<float>(WINDOW_WIDTH) / mapSize.x) * kZoom,
-      (static_cast<float>(WINDOW_HEIGHT) / mapSize.y) * kZoom,
-  };
+  m_CurrentState = State::MENU;
 
-  m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
-  m_Root.AddChild(m_Map);
-
-  // Card slot UI - fixed to screen, shown only after camera settles
-  {
-    m_CardSlot->SetVisible(false);
-
-    constexpr float kTopPercent = 0.9F;
-    constexpr float kBottomPercent = 14.0F;
-    const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
-                                 static_cast<float>(WINDOW_HEIGHT);
-    const glm::vec2 naturalSize = m_CardSlot->GetSourceSize();
-    if (naturalSize.y > 0.0F) {
-      const float slotScale = targetHeightPx / naturalSize.y;
-      m_CardSlot->m_Transform.scale = {slotScale, slotScale};
-      const float scaledWidth = naturalSize.x * slotScale;
-
-      // Left edge at x = 21 %
-      const float leftEdgePx = 0.21F * static_cast<float>(WINDOW_WIDTH);
-      const float centerPtsdX = leftEdgePx + scaledWidth * 0.5F -
-                                static_cast<float>(WINDOW_WIDTH) * 0.5F;
-
-      // Vertical centre between 0.9 % and 12 % from top
-      const float topPx =
-          (kTopPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-      const float bottomPx =
-          (kBottomPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-      const float centerPtsdY =
-          static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
-
-      m_CardSlot->m_Transform.translation = {centerPtsdX, centerPtsdY};
-    }
-    m_UIRoot.AddChild(m_CardSlot);
-  }
-
-  SetupPlantCards();
-  PreparePeashooterAttackFrames();
-  PrepareBasicZombieFrames();
-  LoadLevelWaveConfig();
-
-  m_PeashooterAttackCooldowns.fill(1.0F);
-
-  m_CameraStage = CameraStage::STAGE1_HOME;
-  m_CameraStageElapsed = 0.0F;
-  m_CameraInitialized = false;
-
-  m_ActiveZombies.clear();
-  m_BasicZombieStandReady = false;
-  m_UseStandRowForNextSpawn = true;
-  m_WaveSystemStarted = false;
-  m_WaveElapsedSec = 0.0F;
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
-
-  m_CurrentState = State::UPDATE;
+  LOG_INFO("App started, navigating to main menu");
 }
 
 void App::UpdateCamera(const float deltaTime) {
@@ -1520,14 +1459,197 @@ void App::UpdateCamera(const float deltaTime) {
 }
 
 void App::Update() {
-  const float deltaTime = Util::Time::GetDeltaTimeMs() / 1000.0F;
-  UpdateCamera(deltaTime);
+  // Handle state machine
+  switch (m_CurrentState) {
+  case State::START:
+    Start();
+    m_CurrentState = State::MENU;
+    break;
+
+  case State::MENU:
+    m_MenuScene->Render(Util::Time::GetDeltaTimeMs() / 1000.0F);
+    m_SelectedLevelId =
+        m_MenuScene->Update(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    if (m_SelectedLevelId > 0) {
+      // User selected a level
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+      LOG_INFO("Loading level {}", m_SelectedLevelId);
+    }
+    break;
+
+  case State::GAME_LOADING:
+    // Initialize level resources
+    InitializeLevel();
+    m_CurrentState = State::PLAYING;
+    LOG_INFO("Level loaded, starting gameplay");
+    break;
+
+  case State::PLAYING:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Check win/lose conditions
+    if (!HasAliveZombie() && m_WaveSystemStarted &&
+        m_CurrentWaveGroupIndex >= m_ZombieWavePlan.size()) {
+      m_LevelManager->CompleteLevelSuccess();
+      m_CurrentState = State::LEVEL_COMPLETE;
+      LOG_INFO("Level complete!");
+    }
+    break;
+
+  case State::LEVEL_COMPLETE:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Show level complete screen
+    ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
+                            ImGuiCond_Always);
+    ImGui::Begin("Level Complete!", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("Congratulations! Level %d completed!", m_SelectedLevelId);
+    if (ImGui::Button("Next Level")) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    if (ImGui::Button("Back to Menu")) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    ImGui::End();
+    break;
+
+  case State::LEVEL_FAILED:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Show level failed screen
+    ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
+                            ImGuiCond_Always);
+    ImGui::Begin("Level Failed", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("Level %d failed. Zombies reached your house!",
+                m_SelectedLevelId);
+    if (ImGui::Button("Retry")) {
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+    }
+    if (ImGui::Button("Back to Menu")) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    ImGui::End();
+    break;
+
+  case State::END:
+    // Handled by main loop
+    break;
+
+  default:
+    break;
+  }
+
+  // Handle exit
+  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
+    m_CurrentState = State::END;
+  }
+}
+
+void App::InitializeLevel() {
+  LOG_TRACE("Initialize Level");
+
+  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetZIndex(0.0F);
+  m_Map->m_Transform.translation = {0.0F, 0.0F};
+
+  const glm::vec2 mapSize = m_Map->GetScaledSize();
+  constexpr float kZoom = 1.3F;
+  m_Map->m_Transform.scale = {
+      (static_cast<float>(WINDOW_WIDTH) / mapSize.x) * kZoom,
+      (static_cast<float>(WINDOW_HEIGHT) / mapSize.y) * kZoom,
+  };
+
+  m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
+  m_Root.AddChild(m_Map);
+
+  // Card slot UI - fixed to screen, shown only after camera settles
+  {
+    m_CardSlot->SetVisible(false);
+
+    constexpr float kTopPercent = 0.9F;
+    constexpr float kBottomPercent = 14.0F;
+    const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
+                                 static_cast<float>(WINDOW_HEIGHT);
+    const glm::vec2 naturalSize = m_CardSlot->GetSourceSize();
+    if (naturalSize.y > 0.0F) {
+      const float slotScale = targetHeightPx / naturalSize.y;
+      m_CardSlot->m_Transform.scale = {slotScale, slotScale};
+      const float scaledWidth = naturalSize.x * slotScale;
+
+      // Left edge at x = 21 %
+      const float leftEdgePx = 0.21F * static_cast<float>(WINDOW_WIDTH);
+      const float centerPtsdX = leftEdgePx + scaledWidth * 0.5F -
+                                static_cast<float>(WINDOW_WIDTH) * 0.5F;
+
+      // Vertical centre between 0.9 % and 12 % from top
+      const float topPx =
+          (kTopPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float bottomPx =
+          (kBottomPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float centerPtsdY =
+          static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
+
+      m_CardSlot->m_Transform.translation = {centerPtsdX, centerPtsdY};
+    }
+    m_UIRoot.AddChild(m_CardSlot);
+  }
+
+  SetupPlantCards();
+  PreparePeashooterAttackFrames();
+  PrepareBasicZombieFrames();
+
+  // Load level configuration
+  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  m_Sunlight = levelConfig.initialSunAmount;
+
+  // Build spawn plan from current level's wave configuration
+  // Convert LevelConfig phases to m_LevelWaveConfig
+  m_LevelWaveConfig.levelId = "level" + std::to_string(levelConfig.levelId);
+  m_LevelWaveConfig.phases.clear();
+  for (const auto &phase : levelConfig.phases) {
+    m_LevelWaveConfig.phases.push_back(phase);
+  }
+
+  BuildZombieSpawnPlan(m_LevelWaveConfig);
+
+  m_PeashooterAttackCooldowns.fill(1.0F);
+
+  m_CameraStage = CameraStage::STAGE1_HOME;
+  m_CameraStageElapsed = 0.0F;
+  m_CameraInitialized = false;
+
+  m_ActiveZombies.clear();
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+  m_WaveSystemStarted = false;
+  m_WaveElapsedSec = 0.0F;
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+
+  m_SunSystemStarted = false;
+  m_SunSpawnCountdown = 0.0F;
+
+  LOG_INFO("Level {} initialized with {} initial sun", levelConfig.levelId,
+           levelConfig.initialSunAmount);
+}
+
+void App::UpdateGameplay(float deltaTime) {
+  const float dt = deltaTime;
+  UpdateCamera(dt);
   SetupBasicZombieStand();
   if (m_SunSystemStarted) {
-    UpdateSuns(deltaTime);
+    UpdateSuns(dt);
   }
-  UpdateBasicZombie(deltaTime);
-  UpdatePeashooterCombat(deltaTime);
+  UpdateBasicZombie(dt);
+  UpdatePeashooterCombat(dt);
 
   RemoveDeadPlants();
   UpdatePlantCardUIState();
@@ -1584,14 +1706,6 @@ void App::Update() {
     drawList->AddLine(ImVec2(clickPos.x, clickPos.y - 10.0F),
                       ImVec2(clickPos.x, clickPos.y + 10.0F),
                       IM_COL32(255, 70, 70, 255), 2.0F);
-  }
-
-  /*
-   * Do not touch the code below as they serve the purpose for
-   * closing the window.
-   */
-  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
-    m_CurrentState = State::END;
   }
 }
 

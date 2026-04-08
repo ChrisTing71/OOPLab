@@ -1,0 +1,50 @@
+{
+    "levelId": 1,
+    "name": "Level 1 - Beginning",
+    "description": "Learn the basics. Defend against the first wave of zombies.",
+    "sceneType": "day",
+    "initialSunAmount": 100,
+    "difficultyBadge": "Easy",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 40.0,
+            "repeat": 1,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 0.0,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 18.0,
+            "repeat": 2,
+            "zombiesPerWave": 2,
+            "spawnIntervalSec": 5.0,
+            "waveIntervalSec": 20.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 20.0,
+            "repeat": 1,
+            "zombiesPerWave": 4,
+            "spawnIntervalSec": 5.0,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "peashooter"
+        ],
+        "sunAmountReward": 50
+    }
+}

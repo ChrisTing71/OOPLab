@@ -1,0 +1,50 @@
+{
+    "levelId": 8,
+    "name": "Level 8 - Roof Challenge",
+    "description": "Defend from above. Flying threats are incoming.",
+    "sceneType": "night",
+    "initialSunAmount": 50,
+    "difficultyBadge": "Hard",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 15.0,
+            "repeat": 1,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 1.0,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 4.0,
+            "repeat": 9,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 0.5,
+            "waveIntervalSec": 3.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 2.0,
+            "repeat": 1,
+            "zombiesPerWave": 18,
+            "spawnIntervalSec": 0.7,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "spikeweed"
+        ],
+        "sunAmountReward": 225
+    }
+}

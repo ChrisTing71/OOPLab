@@ -7,6 +7,9 @@
 
 #include "BasicZombie.hpp"
 #include "CardSlot.hpp"
+#include "LevelConfig.hpp"
+#include "LevelManager.hpp"
+#include "MenuScene.hpp"
 #include "Nut.hpp"
 #include "Peashooter.hpp"
 #include "Sun.hpp"
@@ -18,6 +21,12 @@ class App {
 public:
   enum class State {
     START,
+    MENU,           // Main menu - level selection
+    GAME_LOADING,   // Loading level resources
+    PLAYING,        // Actively playing the level
+    LEVEL_COMPLETE, // Level successfully completed
+    LEVEL_FAILED,   // Level failed (zombies reached end)
+    GAME_OVER,      // Game over
     UPDATE,
     END,
   };
@@ -95,6 +104,8 @@ public:
 
 private:
   void ValidTask();
+  void InitializeLevel();
+  void UpdateGameplay(float deltaTime);
   bool PrepareFramesFromGif(const std::string &gifPath,
                             const std::string &framesDir,
                             const std::string &framePrefix,
@@ -265,6 +276,11 @@ private:
   std::vector<ActiveSun> m_Suns;
   int m_Sunlight = 0;
   std::mt19937 m_Random{std::random_device{}()};
+
+  // Level and Menu Management
+  std::shared_ptr<LevelManager> m_LevelManager;
+  std::shared_ptr<MenuScene> m_MenuScene;
+  int m_SelectedLevelId = 1;
 };
 
 #endif
