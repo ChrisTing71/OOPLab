@@ -279,6 +279,120 @@ bool App::PrepareBasicZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
+bool App::LoadLevelWaveConfig() {
+  std::string error;
+  if (!WaveConfigLoader::LoadFromFile("Resources/levels/level1_waves.json",
+                                      m_LevelWaveConfig, error)) {
+    LOG_WARN("{}", error);
+
+    m_LevelWaveConfig.levelId = "level1_fallback";
+    m_LevelWaveConfig.phases = {
+        {
+            "opening_setup",
+            "setup",
+            40.0F,
+            1,
+            1,
+            0.0F,
+            0.0F,
+            false,
+        },
+        {
+            "sub_waves",
+            "sub",
+            18.0F,
+            4,
+            2,
+            1.2F,
+            14.0F,
+            false,
+        },
+        {
+            "huge_wave",
+            "huge",
+            20.0F,
+            1,
+            8,
+            0.7F,
+            0.0F,
+            true,
+        },
+    };
+  }
+
+  BuildZombieSpawnPlan(m_LevelWaveConfig);
+  return !m_ZombieWavePlan.empty();
+}
+
+void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
+  m_ZombieWavePlan.clear();
+  float timelineSec = 0.0F;
+
+  for (const auto &phase : waveConfig.phases) {
+    timelineSec += phase.startDelaySec;
+    for (int i = 0; i < phase.repeat; ++i) {
+      m_ZombieWavePlan.push_back({
+          phase.id,
+          phase.type,
+          timelineSec,
+          phase.zombiesPerWave,
+          phase.spawnIntervalSec,
+          phase.waitUntilClear,
+      });
+      timelineSec += phase.waveIntervalSec;
+    }
+  }
+
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+}
+
+void App::SpawnBasicZombieAtRow(const int row) {
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float yPercent = GridRowCenterPercent(row) - cellHeightPercent * 0.1F;
+  const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
+
+  auto zombie = std::make_shared<BasicZombie>(
+      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
+      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
+      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  zombie->m_Transform.translation = spawnPos;
+
+  m_Root.AddChild(zombie);
+  m_ActiveZombies.push_back({zombie, row});
+}
+
+int App::PickSpawnRowForWaveSpawn() {
+  if (m_UseStandRowForNextSpawn && m_BasicZombieStandReady) {
+    const float normalizedY = (m_BasicZombieStandYPercent - kGridMinYPercent) /
+                              (kGridMaxYPercent - kGridMinYPercent);
+    const int standRow =
+        glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
+
+    if (m_BasicZombieStand != nullptr) {
+      m_Root.RemoveChild(m_BasicZombieStand);
+    }
+    m_BasicZombieStandReady = false;
+    m_UseStandRowForNextSpawn = false;
+    return standRow;
+  }
+
+  std::uniform_int_distribution<int> rowDist(0, kGridRows - 1);
+  return rowDist(m_Random);
+}
+
+bool App::HasAliveZombie() const {
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object != nullptr && !zombie.object->IsDestroyed()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 float App::GridRowCenterPercent(const int row) const {
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
@@ -869,58 +983,80 @@ void App::SetupBasicZombieStand() {
 }
 
 void App::UpdateBasicZombie(const float deltaTime) {
-  if (!m_BasicZombieStandReady || m_BasicZombieStartedWalking) {
-    if (m_BasicZombie != nullptr) {
-      m_BasicZombie->Update(deltaTime, CollectAlivePlants());
-      if (m_BasicZombie->IsDestroyed()) {
-        m_Root.RemoveChild(m_BasicZombie);
-        m_BasicZombie = nullptr;
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  for (std::size_t i = 0; i < m_ActiveZombies.size();) {
+    auto &zombie = m_ActiveZombies[i];
+    if (zombie.object != nullptr) {
+      zombie.object->Update(deltaTime, CollectAlivePlants());
+      if (zombie.object->IsDestroyed()) {
+        m_Root.RemoveChild(zombie.object);
+        m_ActiveZombies.erase(m_ActiveZombies.begin() + static_cast<long>(i));
+        continue;
       }
     }
+    ++i;
+  }
+
+  if (!m_WaveSystemStarted) {
     return;
   }
 
-  if (m_CameraStage != CameraStage::FINISHED) {
+  m_WaveElapsedSec += deltaTime;
+
+  if (!m_WaveGroupActive && m_CurrentWaveGroupIndex < m_ZombieWavePlan.size()) {
+    const ZombieWaveSpawnGroup &candidate =
+        m_ZombieWavePlan[m_CurrentWaveGroupIndex];
+    const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
+    const bool clearConditionOk =
+        !candidate.waitUntilClear || !HasAliveZombie();
+    if (hasReachedStart && clearConditionOk) {
+      m_CurrentWaveGroup = candidate;
+      m_WaveGroupActive = true;
+      m_WaveGroupSpawnedCount = 0;
+      m_WaveGroupSpawnTimer = 0.0F;
+    }
+  }
+
+  if (!m_WaveGroupActive) {
     return;
   }
 
-  m_BasicZombieMoveDelayCountdown -= deltaTime;
-  if (m_BasicZombieMoveDelayCountdown > 0.0F) {
-    return;
+  m_WaveGroupSpawnTimer -= deltaTime;
+  while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
+         m_WaveGroupSpawnTimer <= 0.0F) {
+    const int spawnRow = PickSpawnRowForWaveSpawn();
+    SpawnBasicZombieAtRow(spawnRow);
+    ++m_WaveGroupSpawnedCount;
+
+    if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
+      m_WaveGroupSpawnTimer = 0.0F;
+    } else {
+      m_WaveGroupSpawnTimer += m_CurrentWaveGroup.spawnIntervalSec;
+    }
   }
 
-  if (m_BasicZombieStand != nullptr) {
-    m_Root.RemoveChild(m_BasicZombieStand);
+  if (m_WaveGroupSpawnedCount >= m_CurrentWaveGroup.zombieCount) {
+    m_WaveGroupActive = false;
+    ++m_CurrentWaveGroupIndex;
   }
-
-  const float normalizedY = (m_BasicZombieStandYPercent - kGridMinYPercent) /
-                            (kGridMaxYPercent - kGridMinYPercent);
-  m_BasicZombieRow =
-      glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
-  const float cellHeightPercent =
-      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
-  const float yPercent =
-      GridRowCenterPercent(m_BasicZombieRow) - cellHeightPercent * 0.1F;
-  const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
-
-  m_BasicZombie = std::make_shared<BasicZombie>(
-      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
-      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
-  m_BasicZombie->m_Transform.translation = spawnPos;
-
-  m_Root.AddChild(m_BasicZombie);
-  m_BasicZombieStartedWalking = true;
 }
 
 bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
-  if (m_BasicZombie == nullptr || m_BasicZombie->IsDestroyed()) {
-    return false;
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+      continue;
+    }
+    if (zombie.row != row) {
+      continue;
+    }
+    if (zombie.object->m_Transform.translation.x > shooterX) {
+      return true;
+    }
   }
-  if (m_BasicZombieRow != row) {
-    return false;
-  }
-  return m_BasicZombie->m_Transform.translation.x > shooterX;
+  return false;
 }
 
 void App::SpawnPeaFromPeashooter(
@@ -1012,18 +1148,29 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
         continue;
       }
 
-      if (m_BasicZombie != nullptr && !m_BasicZombie->IsDestroyed() &&
-          CheckCustomAABBCollision(
-              *pea.object, *m_BasicZombie,
-              glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
-              glm::vec2(0.48F, 0.80F), // zombie: focus torso region
-              glm::vec2(0.0F, 0.0F),
-              glm::vec2(-m_BasicZombie->GetScaledSize().x * 0.10F, 0.0F))) {
-        m_BasicZombie->TakeDamage(20);
+      ActiveZombie *hitZombie = nullptr;
+      for (auto &zombie : m_ActiveZombies) {
+        if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+          continue;
+        }
 
-        const glm::vec2 zombieSize = m_BasicZombie->GetScaledSize();
+        if (CheckCustomAABBCollision(
+                *pea.object, *zombie.object,
+                glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
+                glm::vec2(0.48F, 0.80F), // zombie: focus torso region
+                glm::vec2(0.0F, 0.0F),
+                glm::vec2(-zombie.object->GetScaledSize().x * 0.10F, 0.0F))) {
+          hitZombie = &zombie;
+          break;
+        }
+      }
+
+      if (hitZombie != nullptr) {
+        hitZombie->object->TakeDamage(20);
+
+        const glm::vec2 zombieSize = hitZombie->object->GetScaledSize();
         pea.object->m_Transform.translation.x =
-            m_BasicZombie->m_Transform.translation.x - zombieSize.x * 0.20F;
+            hitZombie->object->m_Transform.translation.x - zombieSize.x * 0.20F;
 
         auto hitAnim = std::make_shared<Util::Animation>(
             m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);
@@ -1270,6 +1417,7 @@ void App::Start() {
   SetupPlantCards();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  LoadLevelWaveConfig();
 
   m_PeashooterAttackCooldowns.fill(1.0F);
 
@@ -1277,10 +1425,15 @@ void App::Start() {
   m_CameraStageElapsed = 0.0F;
   m_CameraInitialized = false;
 
+  m_ActiveZombies.clear();
   m_BasicZombieStandReady = false;
-  m_BasicZombieStartedWalking = false;
-  m_BasicZombieMoveDelayCountdown = 40.0F;
-  m_BasicZombie = nullptr;
+  m_UseStandRowForNextSpawn = true;
+  m_WaveSystemStarted = false;
+  m_WaveElapsedSec = 0.0F;
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
 
   m_CurrentState = State::UPDATE;
 }
@@ -1346,8 +1499,9 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
       m_SunSystemStarted = true;
+      m_WaveSystemStarted = true;
+      m_WaveElapsedSec = 0.0F;
       m_SunSpawnCountdown = 6.0F;
-      m_BasicZombieMoveDelayCountdown = 40.0F;
     }
     break;
   }

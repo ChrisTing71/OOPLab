@@ -6,6 +6,7 @@ set(SRC_FILES
     Peashooter.cpp
     Sun.cpp
     Sunflower.cpp
+    WaveConfig.cpp
     Zombie.cpp
 )
 
@@ -18,6 +19,7 @@ set(INCLUDE_FILES
     Plant.hpp
     Sun.hpp
     Sunflower.hpp
+    WaveConfig.hpp
     Zombie.hpp
 )
 

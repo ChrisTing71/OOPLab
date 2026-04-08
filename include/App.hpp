@@ -12,6 +12,7 @@
 #include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
+#include "WaveConfig.hpp"
 
 class App {
 public:
@@ -59,6 +60,20 @@ public:
     std::shared_ptr<Util::GameObject> object;
     bool hitting = false;
     std::shared_ptr<Util::Animation> hitAnimation = nullptr;
+  };
+
+  struct ActiveZombie {
+    std::shared_ptr<BasicZombie> object;
+    int row = 0;
+  };
+
+  struct ZombieWaveSpawnGroup {
+    std::string phaseId;
+    std::string phaseType;
+    float earliestStartSec = 0.0F;
+    int zombieCount = 0;
+    float spawnIntervalSec = 0.0F;
+    bool waitUntilClear = false;
   };
 
   enum class PlantCardSelection {
@@ -113,6 +128,11 @@ private:
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
   void SetupBasicZombieStand();
+  bool LoadLevelWaveConfig();
+  void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
+  void SpawnBasicZombieAtRow(int row);
+  int PickSpawnRowForWaveSpawn();
+  bool HasAliveZombie() const;
   void UpdateBasicZombie(float deltaTime);
   void UpdatePeashooterCombat(float deltaTime);
   void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
@@ -202,12 +222,19 @@ private:
 
   std::shared_ptr<Util::GameObject> m_BasicZombieStand =
       std::make_shared<Util::GameObject>();
-  std::shared_ptr<BasicZombie> m_BasicZombie = nullptr;
+  std::vector<ActiveZombie> m_ActiveZombies;
   bool m_BasicZombieStandReady = false;
-  bool m_BasicZombieStartedWalking = false;
-  int m_BasicZombieRow = 0;
+  bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;
-  float m_BasicZombieMoveDelayCountdown = 40.0F;
+  bool m_WaveSystemStarted = false;
+  float m_WaveElapsedSec = 0.0F;
+  LevelWaveConfig m_LevelWaveConfig;
+  std::vector<ZombieWaveSpawnGroup> m_ZombieWavePlan;
+  std::size_t m_CurrentWaveGroupIndex = 0;
+  bool m_WaveGroupActive = false;
+  int m_WaveGroupSpawnedCount = 0;
+  float m_WaveGroupSpawnTimer = 0.0F;
+  ZombieWaveSpawnGroup m_CurrentWaveGroup;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
