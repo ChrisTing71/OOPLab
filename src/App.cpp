@@ -1498,7 +1498,7 @@ void App::Update() {
     }
     break;
 
-  case State::LEVEL_COMPLETE:
+  case State::LEVEL_COMPLETE: {
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
 
     // Show level complete screen
@@ -1506,9 +1506,15 @@ void App::Update() {
                             ImGuiCond_Always);
     ImGui::Begin("Level Complete!", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("Congratulations! Level %d completed!", m_SelectedLevelId);
-    if (ImGui::Button("Next Level")) {
-      m_MenuScene->Reset();
-      m_CurrentState = State::MENU;
+    const bool canProgress = m_LevelManager->CanProgressToNextLevel();
+    if (canProgress && ImGui::Button("Next Level")) {
+      m_SelectedLevelId = m_LevelManager->GetNextLevelId();
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+      LOG_INFO("Advancing to level {}", m_SelectedLevelId);
+    }
+    if (!canProgress) {
+      ImGui::TextDisabled("Final level reached");
     }
     if (ImGui::Button("Back to Menu")) {
       m_MenuScene->Reset();
@@ -1516,6 +1522,7 @@ void App::Update() {
     }
     ImGui::End();
     break;
+  }
 
   case State::LEVEL_FAILED:
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
@@ -1554,9 +1561,12 @@ void App::Update() {
 void App::InitializeLevel() {
   LOG_TRACE("Initialize Level");
 
+  ResetLevelRuntimeState();
+
   m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
+  m_Map->m_Transform.scale = {1.0F, 1.0F};
 
   const glm::vec2 mapSize = m_Map->GetScaledSize();
   constexpr float kZoom = 1.3F;
@@ -1639,6 +1649,47 @@ void App::InitializeLevel() {
 
   LOG_INFO("Level {} initialized with {} initial sun", levelConfig.levelId,
            levelConfig.initialSunAmount);
+}
+
+void App::ResetLevelRuntimeState() {
+  m_Root = Util::Renderer();
+  m_UIRoot = Util::Renderer();
+
+  m_MapScaledWidth = 0.0F;
+  m_CameraCurrentX = 0.0F;
+  m_CameraFromX = 0.0F;
+  m_CameraToX = 0.0F;
+
+  m_HasClickedPoint = false;
+  m_HasGridHit = false;
+  m_LastClickPixel = {0.0F, 0.0F};
+  m_LastClickPercent = {0.0F, 0.0F};
+  m_LastHitRow = 0;
+  m_LastHitColumn = 0;
+
+  m_Sunflowers.fill(nullptr);
+  m_Peashooters.fill(nullptr);
+  m_Nuts.fill(nullptr);
+  m_Peas.clear();
+  m_ActiveZombies.clear();
+  m_Suns.clear();
+
+  m_PlantCards.clear();
+  m_SelectedPlant = PlantCardSelection::NONE;
+
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+  m_BasicZombieStandYPercent = 0.0F;
+
+  m_ZombieWavePlan.clear();
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+  m_CurrentWaveGroup = {};
+
+  m_SunSystemStarted = false;
+  m_SunSpawnCountdown = 0.0F;
 }
 
 void App::UpdateGameplay(float deltaTime) {

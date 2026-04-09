@@ -104,6 +104,7 @@ public:
 
 private:
   void ValidTask();
+  void ResetLevelRuntimeState();
   void InitializeLevel();
   void UpdateGameplay(float deltaTime);
   bool PrepareFramesFromGif(const std::string &gifPath,
