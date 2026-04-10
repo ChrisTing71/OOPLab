@@ -9,7 +9,6 @@
 #include "Util/Image.hpp"
 #include "Util/Input.hpp"
 #include "Util/Keycode.hpp"
-#include "Util/Logger.hpp"
 #include "Util/Time.hpp"
 
 namespace {
@@ -64,14 +63,9 @@ bool App::PrepareFramesFromGif(const std::string &gifPath,
 
   std::error_code mkdirError;
   std::filesystem::create_directories(framesDir, mkdirError);
-  if (mkdirError) {
-    LOG_WARN("Failed to create {} folder: {}", framePrefix,
-             mkdirError.message());
-  }
 
   IMG_Animation *gif = IMG_LoadAnimation(gifPath.c_str());
   if (gif == nullptr || gif->count <= 0) {
-    LOG_ERROR("Failed to load {} animation: {}", gifPath, IMG_GetError());
     if (gif != nullptr) {
       IMG_FreeAnimation(gif);
     }
@@ -86,8 +80,6 @@ bool App::PrepareFramesFromGif(const std::string &gifPath,
     const std::string framePath =
         fmt::format("{}/{}_{:03d}.png", framesDir, framePrefix, i);
     if (IMG_SavePNG(gif->frames[i], framePath.c_str()) != 0) {
-      LOG_WARN("Failed to save {} frame {}: {}", framePrefix, i,
-               IMG_GetError());
       continue;
     }
 
@@ -121,7 +113,6 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 
   SDL_Surface *source = IMG_Load(sourcePath.c_str());
   if (source == nullptr) {
-    LOG_WARN("Failed to load card image {}: {}", sourcePath, IMG_GetError());
     return false;
   }
 
@@ -129,7 +120,6 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
       SDL_ConvertSurfaceFormat(source, SDL_PIXELFORMAT_RGBA32, 0);
   SDL_FreeSurface(source);
   if (rgba == nullptr) {
-    LOG_WARN("Failed to convert card image {}: {}", sourcePath, SDL_GetError());
     return false;
   }
 
@@ -151,8 +141,6 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
   const int saveResult = IMG_SavePNG(rgba, outputPath.c_str());
   SDL_FreeSurface(rgba);
   if (saveResult != 0) {
-    LOG_WARN("Failed to save gray card image {}: {}", outputPath,
-             IMG_GetError());
     return false;
   }
 
@@ -850,33 +838,28 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   const int index = row * kGridColumns + column;
   bool removed = false;
 
+  const auto removePlant = [&](auto &plant) {
+    if (plant != nullptr) {
+      // Mark as dead first so zombies currently targeting this plant
+      // immediately leave attacking state on their next update.
+      plant->TakeDamage(plant->GetHealth());
+      m_Root.RemoveChild(plant);
+      plant = nullptr;
+      removed = true;
+    }
+  };
+
   auto &sunflower = m_Sunflowers[static_cast<std::size_t>(index)];
-  if (sunflower != nullptr) {
-    m_Root.RemoveChild(sunflower);
-    sunflower = nullptr;
-    removed = true;
-  }
+  removePlant(sunflower);
 
   auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
-  if (peashooter != nullptr) {
-    m_Root.RemoveChild(peashooter);
-    peashooter = nullptr;
-    removed = true;
-  }
+  removePlant(peashooter);
 
   auto &nut = m_Nuts[static_cast<std::size_t>(index)];
-  if (nut != nullptr) {
-    m_Root.RemoveChild(nut);
-    nut = nullptr;
-    removed = true;
-  }
+  removePlant(nut);
 
   auto &cherryBomb = m_CherryBombs[static_cast<std::size_t>(index)];
-  if (cherryBomb != nullptr) {
-    m_Root.RemoveChild(cherryBomb);
-    cherryBomb = nullptr;
-    removed = true;
-  }
+  removePlant(cherryBomb);
 
   return removed;
 }
@@ -1650,8 +1633,6 @@ void App::DrawSunlightCounter() const {
 }
 
 void App::Start() {
-  LOG_TRACE("Start");
-
   m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
@@ -1719,8 +1700,6 @@ void App::Start() {
   m_MenuScene = std::make_shared<MenuScene>(m_LevelManager);
 
   m_CurrentState = State::MENU;
-
-  LOG_INFO("App started, navigating to main menu");
 }
 
 void App::UpdateCamera(const float deltaTime) {
@@ -1829,7 +1808,6 @@ void App::Update() {
       // User selected a level
       m_LevelManager->LoadLevel(m_SelectedLevelId);
       m_CurrentState = State::GAME_LOADING;
-      LOG_INFO("Loading level {}", m_SelectedLevelId);
     }
     break;
 
@@ -1837,7 +1815,6 @@ void App::Update() {
     // Initialize level resources
     InitializeLevel();
     m_CurrentState = State::PLAYING;
-    LOG_INFO("Level loaded, starting gameplay");
     break;
 
   case State::PLAYING:
@@ -1848,7 +1825,6 @@ void App::Update() {
         m_CurrentWaveGroupIndex >= m_ZombieWavePlan.size()) {
       m_LevelManager->CompleteLevelSuccess();
       m_CurrentState = State::LEVEL_COMPLETE;
-      LOG_INFO("Level complete!");
     }
     break;
 
@@ -1865,7 +1841,6 @@ void App::Update() {
       m_SelectedLevelId = m_LevelManager->GetNextLevelId();
       m_LevelManager->LoadLevel(m_SelectedLevelId);
       m_CurrentState = State::GAME_LOADING;
-      LOG_INFO("Advancing to level {}", m_SelectedLevelId);
     }
     if (!canProgress) {
       ImGui::TextDisabled("Final level reached");
@@ -1913,7 +1888,6 @@ void App::Update() {
 }
 
 void App::InitializeLevel() {
-  LOG_TRACE("Initialize Level");
 
   ResetLevelRuntimeState();
 
@@ -2003,9 +1977,6 @@ void App::InitializeLevel() {
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
-
-  LOG_INFO("Level {} initialized with {} initial sun", levelConfig.levelId,
-           levelConfig.initialSunAmount);
 }
 
 void App::ResetLevelRuntimeState() {
@@ -2089,8 +2060,6 @@ void App::UpdateGameplay(float deltaTime) {
 
     if (zombieXPercent < kGridMinXPercent) {
       m_CurrentState = State::LEVEL_FAILED;
-      LOG_INFO("Level failed! Zombie reached the left boundary at {}%",
-               zombieXPercent);
       return;
     }
   }
@@ -2151,5 +2120,4 @@ void App::UpdateGameplay(float deltaTime) {
 }
 
 void App::End() { // NOLINT(this method will mutate members in the future)
-  LOG_TRACE("End");
 }

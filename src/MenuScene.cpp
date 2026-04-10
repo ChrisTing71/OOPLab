@@ -3,7 +3,6 @@
 #include "LevelManager.hpp"
 #include "Util/Input.hpp"
 #include "config.hpp"
-#include <spdlog/spdlog.h>
 
 MenuScene::MenuScene(std::shared_ptr<LevelManager> levelManager)
     : m_LevelManager(levelManager), m_HighlightedIndex(0) {
@@ -45,8 +44,6 @@ void MenuScene::CreateLevelButtons() {
 
     m_LevelButtons.push_back(btn);
   }
-
-  spdlog::info("Created {} level selection buttons", m_LevelButtons.size());
 }
 
 int MenuScene::Update(float /**deltaTime*/) {
@@ -90,7 +87,6 @@ void MenuScene::UpdateInput() {
   if (Util::Input::IsKeyPressed(Util::Keycode::RETURN) ||
       Util::Input::IsKeyPressed(Util::Keycode::SPACE)) {
     m_SelectedLevelId = m_LevelButtons[m_HighlightedIndex].levelId;
-    spdlog::info("Level {} selected from menu", m_SelectedLevelId);
   }
 
   // Mouse input
@@ -99,7 +95,6 @@ void MenuScene::UpdateInput() {
       if (IsMouseOverButton(m_LevelButtons[i])) {
         m_SelectedLevelId = m_LevelButtons[i].levelId;
         m_HighlightedIndex = i;
-        spdlog::info("Level {} selected via mouse", m_SelectedLevelId);
         break;
       }
     }
@@ -148,7 +143,6 @@ void MenuScene::RenderLevelSelect() {
 
       if (ImGui::Button(label.c_str(), ImVec2(120.0F, 80.0F))) {
         m_SelectedLevelId = btn.levelId;
-        spdlog::info("Level {} selected", btn.levelId);
       }
 
       if (highlighted) {

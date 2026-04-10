@@ -2,7 +2,6 @@
 
 #include <fstream>
 #include <nlohmann/json.hpp>
-#include <spdlog/spdlog.h>
 
 using json = nlohmann::json;
 
@@ -22,7 +21,6 @@ LevelConfig LevelConfigLoader::LoadFromFile(const std::string &filePath) {
   try {
     std::ifstream file(filePath);
     if (!file.is_open()) {
-      spdlog::warn("Failed to open level config file: {}", filePath);
       return config;
     }
 
@@ -111,19 +109,14 @@ LevelConfig LevelConfigLoader::LoadFromFile(const std::string &filePath) {
       }
     }
 
-    if (config.IsValid()) {
-      spdlog::info("Loaded level config from: {} (Level {})", filePath,
-                   config.levelId);
-    } else {
-      spdlog::warn("Level config from {} is invalid, using defaults", filePath);
+    if (!config.IsValid()) {
       config = GetDefaultConfig(config.levelId);
     }
 
     return config;
 
   } catch (const std::exception &e) {
-    spdlog::error("Exception loading level config from {}: {}", filePath,
-                  e.what());
+    (void)e;
     return GetDefaultConfig(1);
   }
 }
@@ -148,8 +141,6 @@ LevelConfig LevelConfigLoader::GetDefaultConfig(int levelId) {
   defaultPhase.waitUntilClear = false;
 
   config.phases.push_back(defaultPhase);
-
-  spdlog::info("Using default level config for level {}", levelId);
 
   return config;
 }
