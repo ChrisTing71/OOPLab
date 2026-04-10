@@ -291,7 +291,11 @@ bool App::PrepareBasicZombieFrames() {
       "Resources/zombies/basic_zombie/dead.gif",
       "Resources/zombies/basic_zombie/dead_frames", "dead_frame",
       m_BasicZombieDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
-  return okStand && okWalk && okEat && okDead;
+  const bool okCherryBombDead = PrepareFramesFromGif(
+      "Resources/zombies/cherry_bomb_dead.gif",
+      "Resources/zombies/cherry_bomb_dead_frames", "cherry_bomb_dead_frame",
+      m_CherryBombDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
+  return okStand && okWalk && okEat && okDead && okCherryBombDead;
 }
 
 void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
@@ -428,7 +432,8 @@ void App::SpawnBasicZombieAtRow(const int row) {
 
   auto zombie = std::make_shared<BasicZombie>(
       m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
+      m_BasicZombieDeadFramePaths, m_CherryBombDeadFramePaths,
+      ComputeZombieTargetHeight(),
       static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
   zombie->m_Transform.translation = spawnPos;
 
