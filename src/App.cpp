@@ -319,6 +319,107 @@ void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
   m_WaveGroupSpawnTimer = 0.0F;
 }
 
+int App::GetPlannedZombieCount() const {
+  int totalZombies = 0;
+  for (const auto &waveGroup : m_ZombieWavePlan) {
+    totalZombies += glm::max(0, waveGroup.zombieCount);
+  }
+  return totalZombies;
+}
+
+void App::ClearBasicZombieStandPreview() {
+  for (const auto &stand : m_BasicZombieStands) {
+    if (stand != nullptr) {
+      m_Root.RemoveChild(stand);
+    }
+  }
+  m_BasicZombieStands.clear();
+  m_BasicZombieStandPercents.clear();
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+}
+
+void App::PrepareBasicZombieStandPreview() {
+  if (m_BasicZombieStandFramePaths.empty()) {
+    return;
+  }
+
+  const int zombieCount = GetPlannedZombieCount();
+  if (zombieCount <= 0) {
+    return;
+  }
+
+  ClearBasicZombieStandPreview();
+  m_BasicZombieStands.reserve(static_cast<std::size_t>(zombieCount));
+  m_BasicZombieStandPercents.reserve(static_cast<std::size_t>(zombieCount));
+
+  const float halfVisibleWidth = static_cast<float>(WINDOW_WIDTH) * 0.5F;
+  const float halfMapWidth = m_MapScaledWidth * 0.5F;
+  const float panLimit = glm::max(0.0F, halfMapWidth - halfVisibleWidth);
+  const float rightCameraX = -panLimit;
+
+  const auto toRightCameraLocal = [&](const float xPercent,
+                                      const float yPercent) {
+    const float pixelX = (xPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+    const float pixelY =
+        (yPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+
+    const float cursorX = pixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
+    const float cursorY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - pixelY;
+
+    constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
+    return glm::vec2(cursorX, cursorY) -
+           glm::vec2(rightCameraX, kCameraOffsetY);
+  };
+
+  std::uniform_real_distribution<float> xDist(75.0F, 80.0F);
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  std::vector<float> yCandidates;
+  yCandidates.reserve(static_cast<std::size_t>(kGridRows * 2));
+  for (int step = 0; step <= (kGridRows - 1) * 2; ++step) {
+    const float yPercent =
+        kGridMinYPercent +
+        (0.5F + 0.5F * static_cast<float>(step)) * cellHeightPercent;
+    yCandidates.push_back(yPercent);
+  }
+  std::uniform_int_distribution<int> yIndexDist(
+      0, static_cast<int>(yCandidates.size()) - 1);
+  const float targetHeight = ComputeZombieTargetHeight();
+
+  for (int index = 0; index < zombieCount; ++index) {
+    const float xPercent = xDist(m_Random);
+    const float yPercent =
+        yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+
+    auto stand = std::make_shared<Util::GameObject>();
+    auto standAnim = std::make_shared<Util::Animation>(
+        m_BasicZombieStandFramePaths, true,
+        static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
+    stand->SetDrawable(standAnim);
+    const float yNormalized = glm::clamp(
+        (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
+        0.0F, 1.0F);
+    stand->SetZIndex(0.8F + yNormalized * 0.6F);
+    stand->SetVisible(true);
+    stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
+
+    const glm::vec2 standSize = standAnim->GetSize();
+    if (standSize.y > 0.0F) {
+      const float scale = targetHeight / standSize.y;
+      stand->m_Transform.scale = {scale, scale};
+    }
+
+    if (index == 0) {
+      m_BasicZombieStandYPercent = yPercent;
+    }
+
+    m_BasicZombieStandPercents.push_back({xPercent, yPercent});
+    m_Root.AddChild(stand);
+    m_BasicZombieStands.push_back(stand);
+  }
+}
+
 void App::SpawnBasicZombieAtRow(const int row) {
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
@@ -342,9 +443,6 @@ int App::PickSpawnRowForWaveSpawn() {
     const int standRow =
         glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
 
-    if (m_BasicZombieStand != nullptr) {
-      m_Root.RemoveChild(m_BasicZombieStand);
-    }
     m_BasicZombieStandReady = false;
     m_UseStandRowForNextSpawn = false;
     return standRow;
@@ -973,34 +1071,10 @@ void App::SetupBasicZombieStand() {
       m_CameraStageElapsed < kStandAppearSeconds) {
     return;
   }
-  if (m_BasicZombieStandFramePaths.empty()) {
+  if (m_BasicZombieStands.empty()) {
     return;
   }
 
-  std::uniform_real_distribution<float> yDist(10.0F, 90.0F);
-  std::uniform_real_distribution<float> xDist(90.0F, 95.0F);
-
-  const float xPercent = xDist(m_Random);
-  m_BasicZombieStandYPercent = yDist(m_Random);
-  const glm::vec2 standLocalPos =
-      ScreenPercentToRootLocal(xPercent, m_BasicZombieStandYPercent);
-
-  auto standAnim = std::make_shared<Util::Animation>(
-      m_BasicZombieStandFramePaths, true,
-      static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
-
-  m_BasicZombieStand->SetDrawable(standAnim);
-  m_BasicZombieStand->SetZIndex(1.0F);
-  m_BasicZombieStand->m_Transform.translation = standLocalPos;
-
-  const glm::vec2 standSize = standAnim->GetSize();
-  const float targetHeight = ComputeZombieTargetHeight();
-  if (standSize.y > 0.0F) {
-    const float scale = targetHeight / standSize.y;
-    m_BasicZombieStand->m_Transform.scale = {scale, scale};
-  }
-
-  m_Root.AddChild(m_BasicZombieStand);
   m_BasicZombieStandReady = true;
 }
 
@@ -1560,6 +1634,7 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraFromX = rightCameraX;
       m_CameraToX = centerCameraX;
     }
+
     break;
   }
 
@@ -1570,6 +1645,7 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraCurrentX = centerCameraX;
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
+      ClearBasicZombieStandPreview();
       m_SunSystemStarted = true;
       m_WaveSystemStarted = true;
       m_WaveElapsedSec = 0.0F;
@@ -1760,6 +1836,7 @@ void App::InitializeLevel() {
   }
 
   BuildZombieSpawnPlan(m_LevelWaveConfig);
+  PrepareBasicZombieStandPreview();
 
   m_PeashooterAttackCooldowns.fill(1.0F);
 
@@ -1806,6 +1883,8 @@ void App::ResetLevelRuntimeState() {
   m_Peas.clear();
   m_ActiveZombies.clear();
   m_Suns.clear();
+
+  ClearBasicZombieStandPreview();
 
   m_PlantCards.clear();
   m_SelectedPlant = PlantCardSelection::NONE;

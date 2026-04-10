@@ -143,7 +143,10 @@ private:
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
+  void PrepareBasicZombieStandPreview();
   void SetupBasicZombieStand();
+  void ClearBasicZombieStandPreview();
+  int GetPlannedZombieCount() const;
   void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
   void SpawnBasicZombieAtRow(int row);
   int PickSpawnRowForWaveSpawn();
@@ -242,8 +245,8 @@ private:
   std::vector<std::string> m_BasicZombieDeadFramePaths;
   int m_BasicZombieDeadFrameIntervalMs = 120;
 
-  std::shared_ptr<Util::GameObject> m_BasicZombieStand =
-      std::make_shared<Util::GameObject>();
+  std::vector<std::shared_ptr<Util::GameObject>> m_BasicZombieStands;
+  std::vector<glm::vec2> m_BasicZombieStandPercents;
   std::vector<ActiveZombie> m_ActiveZombies;
   bool m_BasicZombieStandReady = false;
   bool m_UseStandRowForNextSpawn = true;
