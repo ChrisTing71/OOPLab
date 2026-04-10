@@ -1,0 +1,50 @@
+{
+    "levelId": 7,
+    "name": "Level 7 - Swimming Pools",
+    "description": "Zombies swim towards you. New threats emerge.",
+    "sceneType": "day",
+    "initialSunAmount": 75,
+    "difficultyBadge": "Hard",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 18.0,
+            "repeat": 1,
+            "zombiesPerWave": 2,
+            "spawnIntervalSec": 1.5,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 5.0,
+            "repeat": 8,
+            "zombiesPerWave": 4,
+            "spawnIntervalSec": 0.6,
+            "waveIntervalSec": 4.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 3.0,
+            "repeat": 1,
+            "zombiesPerWave": 15,
+            "spawnIntervalSec": 0.8,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "lily_pad"
+        ],
+        "sunAmountReward": 200
+    }
+}

@@ -14,7 +14,17 @@ int main(int, char **) {
       app.Start();
       break;
 
+    case App::State::MENU:
+    case App::State::GAME_LOADING:
+    case App::State::PLAYING:
+    case App::State::LEVEL_COMPLETE:
+    case App::State::LEVEL_FAILED:
+    case App::State::GAME_OVER:
+      app.Update();
+      break;
+
     case App::State::UPDATE:
+      // Legacy state - should not be used with new system
       app.Update();
       break;
 

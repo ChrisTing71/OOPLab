@@ -8,16 +8,25 @@
 #include "BasicZombie.hpp"
 #include "CardSlot.hpp"
 #include "CherryBomb.hpp"
+#include "LevelManager.hpp"
+#include "MenuScene.hpp"
 #include "Nut.hpp"
 #include "Peashooter.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
+#include "WaveConfig.hpp"
 
 class App {
 public:
   enum class State {
     START,
+    MENU,           // Main menu - level selection
+    GAME_LOADING,   // Loading level resources
+    PLAYING,        // Actively playing the level
+    LEVEL_COMPLETE, // Level successfully completed
+    LEVEL_FAILED,   // Level failed (zombies reached end)
+    GAME_OVER,      // Game over
     UPDATE,
     END,
   };
@@ -62,6 +71,20 @@ public:
     std::shared_ptr<Util::Animation> hitAnimation = nullptr;
   };
 
+  struct ActiveZombie {
+    std::shared_ptr<BasicZombie> object;
+    int row = 0;
+  };
+
+  struct ZombieWaveSpawnGroup {
+    std::string phaseId;
+    std::string phaseType;
+    float earliestStartSec = 0.0F;
+    int zombieCount = 0;
+    float spawnIntervalSec = 0.0F;
+    bool waitUntilClear = false;
+  };
+
   enum class PlantCardSelection {
     NONE,
     SUNFLOWER,
@@ -82,6 +105,9 @@ public:
 
 private:
   void ValidTask();
+  void ResetLevelRuntimeState();
+  void InitializeLevel();
+  void UpdateGameplay(float deltaTime);
   bool PrepareFramesFromGif(const std::string &gifPath,
                             const std::string &framesDir,
                             const std::string &framePrefix,
@@ -117,7 +143,14 @@ private:
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
+  void PrepareBasicZombieStandPreview();
   void SetupBasicZombieStand();
+  void ClearBasicZombieStandPreview();
+  int GetPlannedZombieCount() const;
+  void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
+  void SpawnBasicZombieAtRow(int row);
+  int PickSpawnRowForWaveSpawn();
+  bool HasAliveZombie() const;
   void UpdateBasicZombie(float deltaTime);
   void UpdateCherryBombs(float deltaTime);
   void UpdatePeashooterCombat(float deltaTime);
@@ -212,14 +245,21 @@ private:
   std::vector<std::string> m_BasicZombieDeadFramePaths;
   int m_BasicZombieDeadFrameIntervalMs = 120;
 
-  std::shared_ptr<Util::GameObject> m_BasicZombieStand =
-      std::make_shared<Util::GameObject>();
-  std::shared_ptr<BasicZombie> m_BasicZombie = nullptr;
+  std::vector<std::shared_ptr<Util::GameObject>> m_BasicZombieStands;
+  std::vector<glm::vec2> m_BasicZombieStandPercents;
+  std::vector<ActiveZombie> m_ActiveZombies;
   bool m_BasicZombieStandReady = false;
-  bool m_BasicZombieStartedWalking = false;
-  int m_BasicZombieRow = 0;
+  bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;
-  float m_BasicZombieMoveDelayCountdown = 40.0F;
+  bool m_WaveSystemStarted = false;
+  float m_WaveElapsedSec = 0.0F;
+  LevelWaveConfig m_LevelWaveConfig;
+  std::vector<ZombieWaveSpawnGroup> m_ZombieWavePlan;
+  std::size_t m_CurrentWaveGroupIndex = 0;
+  bool m_WaveGroupActive = false;
+  int m_WaveGroupSpawnedCount = 0;
+  float m_WaveGroupSpawnTimer = 0.0F;
+  ZombieWaveSpawnGroup m_CurrentWaveGroup;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
@@ -254,6 +294,11 @@ private:
   std::vector<ActiveSun> m_Suns;
   int m_Sunlight = 0;
   std::mt19937 m_Random{std::random_device{}()};
+
+  // Level and Menu Management
+  std::shared_ptr<LevelManager> m_LevelManager;
+  std::shared_ptr<MenuScene> m_MenuScene;
+  int m_SelectedLevelId = 1;
 };
 
 #endif

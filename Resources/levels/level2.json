@@ -1,0 +1,50 @@
+{
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
+    "sceneType": "day",
+    "initialSunAmount": 100,
+    "difficultyBadge": "Easy",
+    "minDefensePoints": 0,
+    "phases": [
+        {
+            "id": "opening_setup",
+            "type": "setup",
+            "startDelaySec": 35.0,
+            "repeat": 1,
+            "zombiesPerWave": 2,
+            "spawnIntervalSec": 1.5,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "sub_waves",
+            "type": "sub",
+            "startDelaySec": 15.0,
+            "repeat": 3,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 1.5,
+            "waveIntervalSec": 10.0,
+            "waitUntilClear": false,
+            "zombieType": "basic"
+        },
+        {
+            "id": "huge_wave",
+            "type": "huge",
+            "startDelaySec": 15.0,
+            "repeat": 1,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 2.5,
+            "waveIntervalSec": 0.0,
+            "waitUntilClear": true,
+            "zombieType": "basic"
+        }
+    ],
+    "reward": {
+        "unlockedPlants": [
+            "nut"
+        ],
+        "sunAmountReward": 75
+    }
+}

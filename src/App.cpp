@@ -294,6 +294,173 @@ bool App::PrepareBasicZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
+void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
+  m_ZombieWavePlan.clear();
+  float timelineSec = 0.0F;
+
+  for (const auto &phase : waveConfig.phases) {
+    timelineSec += phase.startDelaySec;
+    for (int i = 0; i < phase.repeat; ++i) {
+      m_ZombieWavePlan.push_back({
+          phase.id,
+          phase.type,
+          timelineSec,
+          phase.zombiesPerWave,
+          phase.spawnIntervalSec,
+          phase.waitUntilClear,
+      });
+      timelineSec += phase.waveIntervalSec;
+    }
+  }
+
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+}
+
+int App::GetPlannedZombieCount() const {
+  int totalZombies = 0;
+  for (const auto &waveGroup : m_ZombieWavePlan) {
+    totalZombies += glm::max(0, waveGroup.zombieCount);
+  }
+  return totalZombies;
+}
+
+void App::ClearBasicZombieStandPreview() {
+  for (const auto &stand : m_BasicZombieStands) {
+    if (stand != nullptr) {
+      m_Root.RemoveChild(stand);
+    }
+  }
+  m_BasicZombieStands.clear();
+  m_BasicZombieStandPercents.clear();
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+}
+
+void App::PrepareBasicZombieStandPreview() {
+  if (m_BasicZombieStandFramePaths.empty()) {
+    return;
+  }
+
+  const int zombieCount = GetPlannedZombieCount();
+  if (zombieCount <= 0) {
+    return;
+  }
+
+  ClearBasicZombieStandPreview();
+  m_BasicZombieStands.reserve(static_cast<std::size_t>(zombieCount));
+  m_BasicZombieStandPercents.reserve(static_cast<std::size_t>(zombieCount));
+
+  const float halfVisibleWidth = static_cast<float>(WINDOW_WIDTH) * 0.5F;
+  const float halfMapWidth = m_MapScaledWidth * 0.5F;
+  const float panLimit = glm::max(0.0F, halfMapWidth - halfVisibleWidth);
+  const float rightCameraX = -panLimit;
+
+  const auto toRightCameraLocal = [&](const float xPercent,
+                                      const float yPercent) {
+    const float pixelX = (xPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+    const float pixelY =
+        (yPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+
+    const float cursorX = pixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
+    const float cursorY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - pixelY;
+
+    constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
+    return glm::vec2(cursorX, cursorY) -
+           glm::vec2(rightCameraX, kCameraOffsetY);
+  };
+
+  std::uniform_real_distribution<float> xDist(75.0F, 80.0F);
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  std::vector<float> yCandidates;
+  yCandidates.reserve(static_cast<std::size_t>(kGridRows * 2));
+  for (int step = 0; step <= (kGridRows - 1) * 2; ++step) {
+    const float yPercent =
+        kGridMinYPercent +
+        (0.5F + 0.5F * static_cast<float>(step)) * cellHeightPercent;
+    yCandidates.push_back(yPercent);
+  }
+  std::uniform_int_distribution<int> yIndexDist(
+      0, static_cast<int>(yCandidates.size()) - 1);
+  const float targetHeight = ComputeZombieTargetHeight();
+
+  for (int index = 0; index < zombieCount; ++index) {
+    const float xPercent = xDist(m_Random);
+    const float yPercent =
+        yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+
+    auto stand = std::make_shared<Util::GameObject>();
+    auto standAnim = std::make_shared<Util::Animation>(
+        m_BasicZombieStandFramePaths, true,
+        static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
+    stand->SetDrawable(standAnim);
+    const float yNormalized = glm::clamp(
+        (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
+        0.0F, 1.0F);
+    stand->SetZIndex(0.8F + yNormalized * 0.6F);
+    stand->SetVisible(true);
+    stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
+
+    const glm::vec2 standSize = standAnim->GetSize();
+    if (standSize.y > 0.0F) {
+      const float scale = targetHeight / standSize.y;
+      stand->m_Transform.scale = {scale, scale};
+    }
+
+    if (index == 0) {
+      m_BasicZombieStandYPercent = yPercent;
+    }
+
+    m_BasicZombieStandPercents.push_back({xPercent, yPercent});
+    m_Root.AddChild(stand);
+    m_BasicZombieStands.push_back(stand);
+  }
+}
+
+void App::SpawnBasicZombieAtRow(const int row) {
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float yPercent = GridRowCenterPercent(row) - cellHeightPercent * 0.1F;
+  const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
+
+  auto zombie = std::make_shared<BasicZombie>(
+      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
+      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
+      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  zombie->m_Transform.translation = spawnPos;
+
+  m_Root.AddChild(zombie);
+  m_ActiveZombies.push_back({zombie, row});
+}
+
+int App::PickSpawnRowForWaveSpawn() {
+  if (m_UseStandRowForNextSpawn && m_BasicZombieStandReady) {
+    const float normalizedY = (m_BasicZombieStandYPercent - kGridMinYPercent) /
+                              (kGridMaxYPercent - kGridMinYPercent);
+    const int standRow =
+        glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
+
+    m_BasicZombieStandReady = false;
+    m_UseStandRowForNextSpawn = false;
+    return standRow;
+  }
+
+  std::uniform_int_distribution<int> rowDist(0, kGridRows - 1);
+  return rowDist(m_Random);
+}
+
+bool App::HasAliveZombie() const {
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object != nullptr && !zombie.object->IsDestroyed()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 float App::GridRowCenterPercent(const int row) const {
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
@@ -904,80 +1071,73 @@ void App::SetupBasicZombieStand() {
       m_CameraStageElapsed < kStandAppearSeconds) {
     return;
   }
-  if (m_BasicZombieStandFramePaths.empty()) {
+  if (m_BasicZombieStands.empty()) {
     return;
   }
 
-  std::uniform_real_distribution<float> yDist(10.0F, 90.0F);
-  std::uniform_real_distribution<float> xDist(90.0F, 95.0F);
-
-  const float xPercent = xDist(m_Random);
-  m_BasicZombieStandYPercent = yDist(m_Random);
-  const glm::vec2 standLocalPos =
-      ScreenPercentToRootLocal(xPercent, m_BasicZombieStandYPercent);
-
-  auto standAnim = std::make_shared<Util::Animation>(
-      m_BasicZombieStandFramePaths, true,
-      static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
-
-  m_BasicZombieStand->SetDrawable(standAnim);
-  m_BasicZombieStand->SetZIndex(1.0F);
-  m_BasicZombieStand->m_Transform.translation = standLocalPos;
-
-  const glm::vec2 standSize = standAnim->GetSize();
-  const float targetHeight = ComputeZombieTargetHeight();
-  if (standSize.y > 0.0F) {
-    const float scale = targetHeight / standSize.y;
-    m_BasicZombieStand->m_Transform.scale = {scale, scale};
-  }
-
-  m_Root.AddChild(m_BasicZombieStand);
   m_BasicZombieStandReady = true;
 }
 
 void App::UpdateBasicZombie(const float deltaTime) {
-  if (!m_BasicZombieStandReady || m_BasicZombieStartedWalking) {
-    if (m_BasicZombie != nullptr) {
-      m_BasicZombie->Update(deltaTime, CollectAlivePlants());
-      if (m_BasicZombie->IsDestroyed()) {
-        m_Root.RemoveChild(m_BasicZombie);
-        m_BasicZombie = nullptr;
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  for (std::size_t i = 0; i < m_ActiveZombies.size();) {
+    auto &zombie = m_ActiveZombies[i];
+    if (zombie.object != nullptr) {
+      zombie.object->Update(deltaTime, CollectAlivePlants());
+      if (zombie.object->IsDestroyed()) {
+        m_Root.RemoveChild(zombie.object);
+        m_ActiveZombies.erase(m_ActiveZombies.begin() + static_cast<long>(i));
+        continue;
       }
     }
+    ++i;
+  }
+
+  if (!m_WaveSystemStarted) {
     return;
   }
 
-  if (m_CameraStage != CameraStage::FINISHED) {
+  m_WaveElapsedSec += deltaTime;
+
+  if (!m_WaveGroupActive && m_CurrentWaveGroupIndex < m_ZombieWavePlan.size()) {
+    const ZombieWaveSpawnGroup &candidate =
+        m_ZombieWavePlan[m_CurrentWaveGroupIndex];
+    const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
+    const bool clearConditionOk =
+        !candidate.waitUntilClear || !HasAliveZombie();
+    if (hasReachedStart && clearConditionOk) {
+      m_CurrentWaveGroup = candidate;
+      m_WaveGroupActive = true;
+      m_WaveGroupSpawnedCount = 0;
+      m_WaveGroupSpawnTimer = 0.0F;
+    }
+  }
+
+  if (!m_WaveGroupActive) {
     return;
   }
 
-  m_BasicZombieMoveDelayCountdown -= deltaTime;
-  if (m_BasicZombieMoveDelayCountdown > 0.0F) {
-    return;
+  m_WaveGroupSpawnTimer -= deltaTime;
+  while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
+         m_WaveGroupSpawnTimer <= 0.0F) {
+    const int spawnRow = PickSpawnRowForWaveSpawn();
+    SpawnBasicZombieAtRow(spawnRow);
+    ++m_WaveGroupSpawnedCount;
+
+    if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
+      m_WaveGroupSpawnTimer = 0.0F;
+    } else {
+      m_WaveGroupSpawnTimer += m_CurrentWaveGroup.spawnIntervalSec;
+    }
   }
 
-  if (m_BasicZombieStand != nullptr) {
-    m_Root.RemoveChild(m_BasicZombieStand);
+  if (m_WaveGroupSpawnedCount >= m_CurrentWaveGroup.zombieCount) {
+    m_WaveGroupActive = false;
+    ++m_CurrentWaveGroupIndex;
   }
-
-  const float normalizedY = (m_BasicZombieStandYPercent - kGridMinYPercent) /
-                            (kGridMaxYPercent - kGridMinYPercent);
-  m_BasicZombieRow =
-      glm::clamp(static_cast<int>(normalizedY * kGridRows), 0, kGridRows - 1);
-  const float cellHeightPercent =
-      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
-  const float yPercent =
-      GridRowCenterPercent(m_BasicZombieRow) - cellHeightPercent * 0.1F;
-  const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
-
-  m_BasicZombie = std::make_shared<BasicZombie>(
-      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths, ComputeZombieTargetHeight(),
-      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
-  m_BasicZombie->m_Transform.translation = spawnPos;
-
-  m_Root.AddChild(m_BasicZombie);
-  m_BasicZombieStartedWalking = true;
 }
 
 void App::UpdateCherryBombs(const float deltaTime) {
@@ -998,35 +1158,42 @@ void App::UpdateCherryBombs(const float deltaTime) {
     const int centerRow = index / kGridColumns;
     const int centerColumn = index % kGridColumns;
 
-    if (m_BasicZombie == nullptr || m_BasicZombie->IsDestroyed()) {
-      continue;
-    }
+    for (auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+        continue;
+      }
 
-    const float zombiePixelX = m_BasicZombie->m_Transform.translation.x +
-                               m_CameraCurrentX +
-                               static_cast<float>(WINDOW_WIDTH) * 0.5F;
-    const float zombieXPercent =
-        (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
-    const float normalizedX = (zombieXPercent - kGridMinXPercent) /
-                              (kGridMaxXPercent - kGridMinXPercent);
-    const int zombieColumn = glm::clamp(
-        static_cast<int>(normalizedX * kGridColumns), 0, kGridColumns - 1);
+      const float zombiePixelX = zombie.object->m_Transform.translation.x +
+                                 m_CameraCurrentX +
+                                 static_cast<float>(WINDOW_WIDTH) * 0.5F;
+      const float zombieXPercent =
+          (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
+      const float normalizedX = (zombieXPercent - kGridMinXPercent) /
+                                (kGridMaxXPercent - kGridMinXPercent);
+      const int zombieColumn = glm::clamp(
+          static_cast<int>(normalizedX * kGridColumns), 0, kGridColumns - 1);
 
-    if (glm::abs(m_BasicZombieRow - centerRow) <= 1 &&
-        glm::abs(zombieColumn - centerColumn) <= 1) {
-      m_BasicZombie->TakeDamage(9999);
+      if (glm::abs(zombie.row - centerRow) <= 1 &&
+          glm::abs(zombieColumn - centerColumn) <= 1) {
+        zombie.object->TakeDamage(9999);
+      }
     }
   }
 }
 
 bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
-  if (m_BasicZombie == nullptr || m_BasicZombie->IsDestroyed()) {
-    return false;
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+      continue;
+    }
+    if (zombie.row != row) {
+      continue;
+    }
+    if (zombie.object->m_Transform.translation.x > shooterX) {
+      return true;
+    }
   }
-  if (m_BasicZombieRow != row) {
-    return false;
-  }
-  return m_BasicZombie->m_Transform.translation.x > shooterX;
+  return false;
 }
 
 void App::SpawnPeaFromPeashooter(
@@ -1118,18 +1285,29 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
         continue;
       }
 
-      if (m_BasicZombie != nullptr && !m_BasicZombie->IsDestroyed() &&
-          CheckCustomAABBCollision(
-              *pea.object, *m_BasicZombie,
-              glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
-              glm::vec2(0.48F, 0.80F), // zombie: focus torso region
-              glm::vec2(0.0F, 0.0F),
-              glm::vec2(-m_BasicZombie->GetScaledSize().x * 0.10F, 0.0F))) {
-        m_BasicZombie->TakeDamage(20);
+      ActiveZombie *hitZombie = nullptr;
+      for (auto &zombie : m_ActiveZombies) {
+        if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+          continue;
+        }
 
-        const glm::vec2 zombieSize = m_BasicZombie->GetScaledSize();
+        if (CheckCustomAABBCollision(
+                *pea.object, *zombie.object,
+                glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
+                glm::vec2(0.48F, 0.80F), // zombie: focus torso region
+                glm::vec2(0.0F, 0.0F),
+                glm::vec2(-zombie.object->GetScaledSize().x * 0.10F, 0.0F))) {
+          hitZombie = &zombie;
+          break;
+        }
+      }
+
+      if (hitZombie != nullptr) {
+        hitZombie->object->TakeDamage(20);
+
+        const glm::vec2 zombieSize = hitZombie->object->GetScaledSize();
         pea.object->m_Transform.translation.x =
-            m_BasicZombie->m_Transform.translation.x - zombieSize.x * 0.20F;
+            hitZombie->object->m_Transform.translation.x - zombieSize.x * 0.20F;
 
         auto hitAnim = std::make_shared<Util::Animation>(
             m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);
@@ -1394,11 +1572,16 @@ void App::Start() {
   m_CameraInitialized = false;
 
   m_BasicZombieStandReady = false;
-  m_BasicZombieStartedWalking = false;
-  m_BasicZombieMoveDelayCountdown = 40.0F;
-  m_BasicZombie = nullptr;
+  m_ActiveZombies.clear();
 
   m_CurrentState = State::UPDATE;
+  // Initialize level manager
+  m_LevelManager = std::make_shared<LevelManager>();
+  m_MenuScene = std::make_shared<MenuScene>(m_LevelManager);
+
+  m_CurrentState = State::MENU;
+
+  LOG_INFO("App started, navigating to main menu");
 }
 
 void App::UpdateCamera(const float deltaTime) {
@@ -1451,6 +1634,7 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraFromX = rightCameraX;
       m_CameraToX = centerCameraX;
     }
+
     break;
   }
 
@@ -1461,9 +1645,11 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraCurrentX = centerCameraX;
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
+      ClearBasicZombieStandPreview();
       m_SunSystemStarted = true;
+      m_WaveSystemStarted = true;
+      m_WaveElapsedSec = 0.0F;
       m_SunSpawnCountdown = 6.0F;
-      m_BasicZombieMoveDelayCountdown = 40.0F;
     }
     break;
   }
@@ -1482,15 +1668,252 @@ void App::UpdateCamera(const float deltaTime) {
 }
 
 void App::Update() {
-  const float deltaTime = Util::Time::GetDeltaTimeMs() / 1000.0F;
-  UpdateCamera(deltaTime);
+  // Handle state machine
+  switch (m_CurrentState) {
+  case State::START:
+    Start();
+    m_CurrentState = State::MENU;
+    break;
+
+  case State::MENU:
+    m_MenuScene->Render(Util::Time::GetDeltaTimeMs() / 1000.0F);
+    m_SelectedLevelId =
+        m_MenuScene->Update(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    if (m_SelectedLevelId > 0) {
+      // User selected a level
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+      LOG_INFO("Loading level {}", m_SelectedLevelId);
+    }
+    break;
+
+  case State::GAME_LOADING:
+    // Initialize level resources
+    InitializeLevel();
+    m_CurrentState = State::PLAYING;
+    LOG_INFO("Level loaded, starting gameplay");
+    break;
+
+  case State::PLAYING:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Check win/lose conditions
+    if (!HasAliveZombie() && m_WaveSystemStarted &&
+        m_CurrentWaveGroupIndex >= m_ZombieWavePlan.size()) {
+      m_LevelManager->CompleteLevelSuccess();
+      m_CurrentState = State::LEVEL_COMPLETE;
+      LOG_INFO("Level complete!");
+    }
+    break;
+
+  case State::LEVEL_COMPLETE: {
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Show level complete screen
+    ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
+                            ImGuiCond_Always);
+    ImGui::Begin("Level Complete!", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("Congratulations! Level %d completed!", m_SelectedLevelId);
+    const bool canProgress = m_LevelManager->CanProgressToNextLevel();
+    if (canProgress && ImGui::Button("Next Level")) {
+      m_SelectedLevelId = m_LevelManager->GetNextLevelId();
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+      LOG_INFO("Advancing to level {}", m_SelectedLevelId);
+    }
+    if (!canProgress) {
+      ImGui::TextDisabled("Final level reached");
+    }
+    if (ImGui::Button("Back to Menu")) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    ImGui::End();
+    break;
+  }
+
+  case State::LEVEL_FAILED:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    // Show level failed screen
+    ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
+                            ImGuiCond_Always);
+    ImGui::Begin("Level Failed", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::Text("Level %d failed. Zombies reached your house!",
+                m_SelectedLevelId);
+    if (ImGui::Button("Retry")) {
+      m_LevelManager->LoadLevel(m_SelectedLevelId);
+      m_CurrentState = State::GAME_LOADING;
+    }
+    if (ImGui::Button("Back to Menu")) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    ImGui::End();
+    break;
+
+  case State::END:
+    // Handled by main loop
+    break;
+
+  default:
+    break;
+  }
+
+  // Handle exit
+  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
+    m_CurrentState = State::END;
+  }
+}
+
+void App::InitializeLevel() {
+  LOG_TRACE("Initialize Level");
+
+  ResetLevelRuntimeState();
+
+  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetZIndex(0.0F);
+  m_Map->m_Transform.translation = {0.0F, 0.0F};
+  m_Map->m_Transform.scale = {1.0F, 1.0F};
+
+  const glm::vec2 mapSize = m_Map->GetScaledSize();
+  constexpr float kZoom = 1.3F;
+  m_Map->m_Transform.scale = {
+      (static_cast<float>(WINDOW_WIDTH) / mapSize.x) * kZoom,
+      (static_cast<float>(WINDOW_HEIGHT) / mapSize.y) * kZoom,
+  };
+
+  m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
+  m_Root.AddChild(m_Map);
+
+  // Card slot UI - fixed to screen, shown only after camera settles
+  {
+    m_CardSlot->SetVisible(false);
+
+    constexpr float kTopPercent = 0.9F;
+    constexpr float kBottomPercent = 14.0F;
+    const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
+                                 static_cast<float>(WINDOW_HEIGHT);
+    const glm::vec2 naturalSize = m_CardSlot->GetSourceSize();
+    if (naturalSize.y > 0.0F) {
+      const float slotScale = targetHeightPx / naturalSize.y;
+      m_CardSlot->m_Transform.scale = {slotScale, slotScale};
+      const float scaledWidth = naturalSize.x * slotScale;
+
+      // Left edge at x = 21 %
+      const float leftEdgePx = 0.21F * static_cast<float>(WINDOW_WIDTH);
+      const float centerPtsdX = leftEdgePx + scaledWidth * 0.5F -
+                                static_cast<float>(WINDOW_WIDTH) * 0.5F;
+
+      // Vertical centre between 0.9 % and 12 % from top
+      const float topPx =
+          (kTopPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float bottomPx =
+          (kBottomPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float centerPtsdY =
+          static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
+
+      m_CardSlot->m_Transform.translation = {centerPtsdX, centerPtsdY};
+    }
+    m_UIRoot.AddChild(m_CardSlot);
+  }
+
+  SetupPlantCards();
+  PreparePeashooterAttackFrames();
+  PrepareBasicZombieFrames();
+
+  // Load level configuration
+  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  m_Sunlight = levelConfig.initialSunAmount;
+
+  // Build spawn plan from current level's wave configuration
+  // Convert LevelConfig phases to m_LevelWaveConfig
+  m_LevelWaveConfig.levelId = "level" + std::to_string(levelConfig.levelId);
+  m_LevelWaveConfig.phases.clear();
+  for (const auto &phase : levelConfig.phases) {
+    m_LevelWaveConfig.phases.push_back(phase);
+  }
+
+  BuildZombieSpawnPlan(m_LevelWaveConfig);
+  PrepareBasicZombieStandPreview();
+
+  m_PeashooterAttackCooldowns.fill(1.0F);
+
+  m_CameraStage = CameraStage::STAGE1_HOME;
+  m_CameraStageElapsed = 0.0F;
+  m_CameraInitialized = false;
+
+  m_ActiveZombies.clear();
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+  m_WaveSystemStarted = false;
+  m_WaveElapsedSec = 0.0F;
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+
+  m_SunSystemStarted = false;
+  m_SunSpawnCountdown = 0.0F;
+
+  LOG_INFO("Level {} initialized with {} initial sun", levelConfig.levelId,
+           levelConfig.initialSunAmount);
+}
+
+void App::ResetLevelRuntimeState() {
+  m_Root = Util::Renderer();
+  m_UIRoot = Util::Renderer();
+
+  m_MapScaledWidth = 0.0F;
+  m_CameraCurrentX = 0.0F;
+  m_CameraFromX = 0.0F;
+  m_CameraToX = 0.0F;
+
+  m_HasClickedPoint = false;
+  m_HasGridHit = false;
+  m_LastClickPixel = {0.0F, 0.0F};
+  m_LastClickPercent = {0.0F, 0.0F};
+  m_LastHitRow = 0;
+  m_LastHitColumn = 0;
+
+  m_Sunflowers.fill(nullptr);
+  m_Peashooters.fill(nullptr);
+  m_Nuts.fill(nullptr);
+  m_Peas.clear();
+  m_ActiveZombies.clear();
+  m_Suns.clear();
+
+  ClearBasicZombieStandPreview();
+
+  m_PlantCards.clear();
+  m_SelectedPlant = PlantCardSelection::NONE;
+
+  m_BasicZombieStandReady = false;
+  m_UseStandRowForNextSpawn = true;
+  m_BasicZombieStandYPercent = 0.0F;
+
+  m_ZombieWavePlan.clear();
+  m_CurrentWaveGroupIndex = 0;
+  m_WaveGroupActive = false;
+  m_WaveGroupSpawnedCount = 0;
+  m_WaveGroupSpawnTimer = 0.0F;
+  m_CurrentWaveGroup = {};
+
+  m_SunSystemStarted = false;
+  m_SunSpawnCountdown = 0.0F;
+}
+
+void App::UpdateGameplay(float deltaTime) {
+  const float dt = deltaTime;
+  UpdateCamera(dt);
   SetupBasicZombieStand();
   if (m_SunSystemStarted) {
-    UpdateSuns(deltaTime);
+    UpdateSuns(dt);
   }
-  UpdateBasicZombie(deltaTime);
+  UpdateBasicZombie(dt);
   UpdateCherryBombs(deltaTime);
-  UpdatePeashooterCombat(deltaTime);
+  UpdatePeashooterCombat(dt);
 
   RemoveDeadPlants();
   UpdatePlantCardUIState();
@@ -1547,14 +1970,6 @@ void App::Update() {
     drawList->AddLine(ImVec2(clickPos.x, clickPos.y - 10.0F),
                       ImVec2(clickPos.x, clickPos.y + 10.0F),
                       IM_COL32(255, 70, 70, 255), 2.0F);
-  }
-
-  /*
-   * Do not touch the code below as they serve the purpose for
-   * closing the window.
-   */
-  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
-    m_CurrentState = State::END;
   }
 }
 
