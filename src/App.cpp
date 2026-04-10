@@ -294,51 +294,6 @@ bool App::PrepareBasicZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
-bool App::LoadLevelWaveConfig() {
-  std::string error;
-  if (!WaveConfigLoader::LoadFromFile("Resources/levels/level1_waves.json",
-                                      m_LevelWaveConfig, error)) {
-    LOG_WARN("{}", error);
-
-    m_LevelWaveConfig.levelId = "level1_fallback";
-    m_LevelWaveConfig.phases = {
-        {
-            "opening_setup",
-            "setup",
-            40.0F,
-            1,
-            1,
-            0.0F,
-            0.0F,
-            false,
-        },
-        {
-            "sub_waves",
-            "sub",
-            18.0F,
-            4,
-            2,
-            1.2F,
-            14.0F,
-            false,
-        },
-        {
-            "huge_wave",
-            "huge",
-            20.0F,
-            1,
-            8,
-            0.7F,
-            0.0F,
-            true,
-        },
-    };
-  }
-
-  BuildZombieSpawnPlan(m_LevelWaveConfig);
-  return !m_ZombieWavePlan.empty();
-}
-
 void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
   m_ZombieWavePlan.clear();
   float timelineSec = 0.0F;

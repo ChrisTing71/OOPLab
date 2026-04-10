@@ -7,10 +7,9 @@
 
 #include "BasicZombie.hpp"
 #include "CardSlot.hpp"
-#include "LevelConfig.hpp"
+#include "CherryBomb.hpp"
 #include "LevelManager.hpp"
 #include "MenuScene.hpp"
-#include "CherryBomb.hpp"
 #include "Nut.hpp"
 #include "Peashooter.hpp"
 #include "Sun.hpp"
@@ -145,7 +144,6 @@ private:
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void UpdateSuns(float deltaTime);
   void SetupBasicZombieStand();
-  bool LoadLevelWaveConfig();
   void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
   void SpawnBasicZombieAtRow(int row);
   int PickSpawnRowForWaveSpawn();
