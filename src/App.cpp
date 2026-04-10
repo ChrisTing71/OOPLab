@@ -298,6 +298,12 @@ bool App::PrepareBasicZombieFrames() {
   return okStand && okWalk && okEat && okDead && okCherryBombDead;
 }
 
+bool App::PrepareLawnMowerFrames() {
+  return PrepareFramesFromGif("Resources/car/car.gif", "Resources/car/frames",
+                              "car_frame", m_LawnMowerFramePaths,
+                              m_LawnMowerFrameIntervalMs);
+}
+
 void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
   m_ZombieWavePlan.clear();
   float timelineSec = 0.0F;
@@ -1145,6 +1151,133 @@ void App::UpdateBasicZombie(const float deltaTime) {
   }
 }
 
+void App::SetupLawnMowers() {
+  if (!PrepareLawnMowerFrames()) {
+    return;
+  }
+
+  for (auto &mower : m_LawnMowers) {
+    if (mower.object != nullptr) {
+      m_Root.RemoveChild(mower.object);
+    }
+    mower = {};
+  }
+
+  const float cellWidthPercent =
+      (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float cellWidthPx =
+      (cellWidthPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+  constexpr float kLawnMowerVisualScale = 2.00F;
+  const float targetHeightPx =
+      (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT) * 0.20F;
+  const float outsideOffsetPx = cellWidthPx * 0.70F;
+
+  for (int row = 0; row < kGridRows; ++row) {
+    auto &mower = m_LawnMowers[static_cast<std::size_t>(row)];
+
+    auto mowerObj = std::make_shared<Util::GameObject>();
+    auto mowerAnim = std::make_shared<Util::Animation>(
+        m_LawnMowerFramePaths, false,
+        static_cast<std::size_t>(m_LawnMowerFrameIntervalMs), true, 0);
+    mowerObj->SetDrawable(mowerAnim);
+    mowerObj->SetVisible(false);
+    mowerObj->SetZIndex(1.1F);
+
+    const glm::vec2 animSize = mowerAnim->GetSize();
+    if (animSize.y > 0.0F) {
+      const float scale = (targetHeightPx / animSize.y) * kLawnMowerVisualScale;
+      mowerObj->m_Transform.scale = {scale, scale};
+    }
+
+    glm::vec2 rowPos = ComputeGridCellLocalPosition(row, 0);
+    rowPos.x -= outsideOffsetPx;
+    mowerObj->m_Transform.translation = rowPos;
+
+    mower.row = row;
+    mower.object = mowerObj;
+    mower.animation = mowerAnim;
+    mower.armed = true;
+    mower.active = false;
+    mower.destroyed = false;
+
+    m_Root.AddChild(mowerObj);
+  }
+}
+
+void App::UpdateLawnMowers(const float deltaTime) {
+  if (deltaTime <= 0.0F || m_CameraStage != CameraStage::FINISHED) {
+    return;
+  }
+
+  constexpr float kLawnMowerSpeedPxPerSec =
+      0.35F * static_cast<float>(WINDOW_WIDTH);
+
+  for (auto &mower : m_LawnMowers) {
+    if (mower.object == nullptr || mower.destroyed) {
+      continue;
+    }
+
+    if (mower.armed) {
+      for (auto &zombie : m_ActiveZombies) {
+        if (zombie.object == nullptr || zombie.object->IsDestroyed() ||
+            zombie.row != mower.row) {
+          continue;
+        }
+
+        if (CheckCustomAABBCollision(
+                *mower.object, *zombie.object,
+                glm::vec2(0.80F, 0.75F), // mower: front body region
+                glm::vec2(0.50F, 0.80F), // zombie: torso region
+                glm::vec2(0.0F, 0.0F), glm::vec2(0.0F, 0.0F))) {
+          mower.armed = false;
+          mower.active = true;
+          if (mower.animation != nullptr) {
+            mower.animation->Play();
+          }
+          zombie.object->TakeDamage(9999);
+          break;
+        }
+      }
+    }
+
+    if (!mower.active) {
+      continue;
+    }
+
+    mower.object->m_Transform.translation.x +=
+        kLawnMowerSpeedPxPerSec * deltaTime;
+
+    for (auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed() ||
+          zombie.row != mower.row) {
+        continue;
+      }
+
+      if (CheckCustomAABBCollision(
+              *mower.object, *zombie.object,
+              glm::vec2(0.85F, 0.75F), // mower: sweeping body region
+              glm::vec2(0.50F, 0.80F), // zombie: torso region
+              glm::vec2(0.0F, 0.0F), glm::vec2(0.0F, 0.0F))) {
+        zombie.object->TakeDamage(9999);
+      }
+    }
+
+    const glm::vec2 mowerSize = mower.object->GetScaledSize();
+    const float offscreenRightX =
+        static_cast<float>(WINDOW_WIDTH) * 0.55F - m_CameraCurrentX;
+    if (mower.object->m_Transform.translation.x - mowerSize.x * 0.5F >
+        offscreenRightX) {
+      m_Root.RemoveChild(mower.object);
+      mower.object = nullptr;
+      mower.animation = nullptr;
+      mower.active = false;
+      mower.destroyed = true;
+    }
+  }
+}
+
 void App::UpdateCherryBombs(const float deltaTime) {
   if (deltaTime <= 0.0F) {
     return;
@@ -1569,6 +1702,7 @@ void App::Start() {
   PrepareCherryBombBlowFrames();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  PrepareLawnMowerFrames();
 
   m_PeashooterAttackCooldowns.fill(1.0F);
 
@@ -1651,6 +1785,7 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStage = CameraStage::FINISHED;
       m_CameraStageElapsed = 0.0F;
       ClearBasicZombieStandPreview();
+      SetupLawnMowers();
       m_SunSystemStarted = true;
       m_WaveSystemStarted = true;
       m_WaveElapsedSec = 0.0F;
@@ -1666,6 +1801,11 @@ void App::UpdateCamera(const float deltaTime) {
     m_PeashooterCard->SetVisible(true);
     m_ShovelShell->SetVisible(true);
     m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
+    for (auto &mower : m_LawnMowers) {
+      if (mower.object != nullptr && !mower.destroyed) {
+        mower.object->SetVisible(true);
+      }
+    }
     break;
   }
 
@@ -1827,6 +1967,7 @@ void App::InitializeLevel() {
   SetupPlantCards();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  PrepareLawnMowerFrames();
 
   // Load level configuration
   const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
@@ -1850,6 +1991,7 @@ void App::InitializeLevel() {
   m_CameraInitialized = false;
 
   m_ActiveZombies.clear();
+  m_LawnMowers.fill({});
   m_BasicZombieStandReady = false;
   m_UseStandRowForNextSpawn = true;
   m_WaveSystemStarted = false;
@@ -1888,6 +2030,7 @@ void App::ResetLevelRuntimeState() {
   m_Peas.clear();
   m_ActiveZombies.clear();
   m_Suns.clear();
+  m_LawnMowers.fill({});
 
   ClearBasicZombieStandPreview();
 
@@ -1911,17 +2054,46 @@ void App::ResetLevelRuntimeState() {
 
 void App::UpdateGameplay(float deltaTime) {
   const float dt = deltaTime;
+
+  // If level failed, just render the frozen scene without updating game logic
+  if (m_CurrentState == State::LEVEL_FAILED) {
+    m_Root.Update();
+    m_UIRoot.Update();
+    return;
+  }
+
   UpdateCamera(dt);
   SetupBasicZombieStand();
   if (m_SunSystemStarted) {
     UpdateSuns(dt);
   }
   UpdateBasicZombie(dt);
+  UpdateLawnMowers(dt);
   UpdateCherryBombs(deltaTime);
   UpdatePeashooterCombat(dt);
 
   RemoveDeadPlants();
   UpdatePlantCardUIState();
+
+  // Check for game over: zombie reached left boundary
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+      continue;
+    }
+
+    const float zombiePixelX = zombie.object->m_Transform.translation.x +
+                               m_CameraCurrentX +
+                               static_cast<float>(WINDOW_WIDTH) * 0.5F;
+    const float zombieXPercent =
+        (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
+
+    if (zombieXPercent < kGridMinXPercent) {
+      m_CurrentState = State::LEVEL_FAILED;
+      LOG_INFO("Level failed! Zombie reached the left boundary at {}%",
+               zombieXPercent);
+      return;
+    }
+  }
 
   if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_RB)) {
     ClearSelectedPlantTool();
