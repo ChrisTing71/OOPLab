@@ -10,7 +10,7 @@
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 40.0,
+            "startDelaySec": 0.0,
             "repeat": 1,
             "zombiesPerWave": 1,
             "spawnIntervalSec": 0.0,

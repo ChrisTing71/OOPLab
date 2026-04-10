@@ -76,6 +76,15 @@ public:
     int row = 0;
   };
 
+  struct LawnMower {
+    std::shared_ptr<Util::GameObject> object;
+    std::shared_ptr<Util::Animation> animation;
+    int row = 0;
+    bool armed = true;
+    bool active = false;
+    bool destroyed = false;
+  };
+
   struct ZombieWaveSpawnGroup {
     std::string phaseId;
     std::string phaseType;
@@ -123,6 +132,7 @@ private:
   bool PrepareCherryBombBlowFrames();
   bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
+  bool PrepareLawnMowerFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
   bool PlaceSunflowerAtGridCell(int row, int column);
@@ -152,6 +162,8 @@ private:
   int PickSpawnRowForWaveSpawn();
   bool HasAliveZombie() const;
   void UpdateBasicZombie(float deltaTime);
+  void SetupLawnMowers();
+  void UpdateLawnMowers(float deltaTime);
   void UpdateCherryBombs(float deltaTime);
   void UpdatePeashooterCombat(float deltaTime);
   void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
@@ -244,10 +256,13 @@ private:
   int m_BasicZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_BasicZombieDeadFramePaths;
   int m_BasicZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_LawnMowerFramePaths;
+  int m_LawnMowerFrameIntervalMs = 100;
 
   std::vector<std::shared_ptr<Util::GameObject>> m_BasicZombieStands;
   std::vector<glm::vec2> m_BasicZombieStandPercents;
   std::vector<ActiveZombie> m_ActiveZombies;
+  std::array<LawnMower, kGridRows> m_LawnMowers{};
   bool m_BasicZombieStandReady = false;
   bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;
