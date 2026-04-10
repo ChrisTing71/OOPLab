@@ -15,9 +15,11 @@ glm::vec2 MaxCorner(const Util::GameObject &obj) {
 Zombie::Zombie(const std::vector<std::string> &walkingFrames,
                const std::vector<std::string> &attackingFrames,
                const std::vector<std::string> &dyingFrames,
+               const std::vector<std::string> &cherryBombDyingFrames,
                const float targetHeightPx, const std::size_t frameIntervalMs,
                const float moveSpeedPxPerSec, const int health)
-    : m_MoveSpeedPxPerSec(moveSpeedPxPerSec), m_Health(glm::max(1, health)) {
+    : m_TargetHeightPx(targetHeightPx), m_MoveSpeedPxPerSec(moveSpeedPxPerSec),
+      m_Health(glm::max(1, health)) {
   if (!walkingFrames.empty()) {
     m_WalkingAnimation = std::make_shared<Util::Animation>(
         walkingFrames, true, frameIntervalMs, true, 0);
@@ -29,6 +31,10 @@ Zombie::Zombie(const std::vector<std::string> &walkingFrames,
   if (!dyingFrames.empty()) {
     m_DyingAnimation = std::make_shared<Util::Animation>(
         dyingFrames, true, frameIntervalMs, false, 0);
+  }
+  if (!cherryBombDyingFrames.empty()) {
+    m_CherryBombDyingAnimation = std::make_shared<Util::Animation>(
+        cherryBombDyingFrames, true, frameIntervalMs, false, 0);
   }
 
   SetZIndex(1.0F);
@@ -94,8 +100,11 @@ void Zombie::Update(const float dt,
   }
 
   case State::Dying: {
-    if (m_DyingAnimation != nullptr) {
-      if (m_DyingAnimation->GetState() == Util::Animation::State::ENDED) {
+    const std::shared_ptr<Util::Animation> dyingAnimation =
+        m_IsCherryBombDeath ? m_CherryBombDyingAnimation : m_DyingAnimation;
+
+    if (dyingAnimation != nullptr) {
+      if (dyingAnimation->GetState() == Util::Animation::State::ENDED) {
         m_Destroyed = true;
         SetVisible(false);
       }
@@ -117,6 +126,7 @@ void Zombie::TakeDamage(const int amount) {
     return;
   }
 
+  m_IsCherryBombDeath = (amount >= 9999);
   m_Health = glm::max(0, m_Health - amount);
   if (m_Health == 0) {
     EnterState(State::Dying);
@@ -171,10 +181,23 @@ void Zombie::EnterState(const State newState) {
   case State::Dying:
     m_DyingElapsed = 0.0F;
     m_CurrentTarget = nullptr;
-    if (m_DyingAnimation != nullptr) {
+    if (m_IsCherryBombDeath && m_CherryBombDyingAnimation != nullptr) {
+      m_CherryBombDyingAnimation->SetCurrentFrame(0);
+      m_CherryBombDyingAnimation->Play();
+      SetDrawable(m_CherryBombDyingAnimation);
+    } else if (m_DyingAnimation != nullptr) {
       m_DyingAnimation->SetCurrentFrame(0);
       m_DyingAnimation->Play();
       SetDrawable(m_DyingAnimation);
+    }
+    // Adjust scale to match target height
+    if (m_TargetHeightPx > 0.0F) {
+      const float drawableHeight =
+          GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
+      if (drawableHeight > 0.0F) {
+        const float scale = m_TargetHeightPx / drawableHeight;
+        m_Transform.scale = {scale, scale};
+      }
     }
     break;
   }
