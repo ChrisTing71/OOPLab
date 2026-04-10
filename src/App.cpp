@@ -2049,6 +2049,14 @@ void App::ResetLevelRuntimeState() {
 
 void App::UpdateGameplay(float deltaTime) {
   const float dt = deltaTime;
+
+  // If level failed, just render the frozen scene without updating game logic
+  if (m_CurrentState == State::LEVEL_FAILED) {
+    m_Root.Update();
+    m_UIRoot.Update();
+    return;
+  }
+
   UpdateCamera(dt);
   SetupBasicZombieStand();
   if (m_SunSystemStarted) {
@@ -2061,6 +2069,26 @@ void App::UpdateGameplay(float deltaTime) {
 
   RemoveDeadPlants();
   UpdatePlantCardUIState();
+
+  // Check for game over: zombie reached left boundary
+  for (const auto &zombie : m_ActiveZombies) {
+    if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+      continue;
+    }
+
+    const float zombiePixelX = zombie.object->m_Transform.translation.x +
+                               m_CameraCurrentX +
+                               static_cast<float>(WINDOW_WIDTH) * 0.5F;
+    const float zombieXPercent =
+        (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
+
+    if (zombieXPercent < kGridMinXPercent) {
+      m_CurrentState = State::LEVEL_FAILED;
+      LOG_INFO("Level failed! Zombie reached the left boundary at {}%",
+               zombieXPercent);
+      return;
+    }
+  }
 
   if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_RB)) {
     ClearSelectedPlantTool();
