@@ -1164,7 +1164,7 @@ void App::SetupLawnMowers() {
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
   const float cellWidthPx =
       (cellWidthPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
-  constexpr float kLawnMowerVisualScale = 1.50F;
+  constexpr float kLawnMowerVisualScale = 2.00F;
   const float targetHeightPx =
       (cellHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT) * 0.20F;
   const float outsideOffsetPx = cellWidthPx * 0.70F;

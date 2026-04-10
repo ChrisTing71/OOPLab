@@ -28,7 +28,7 @@ Zombie::Zombie(const std::vector<std::string> &walkingFrames,
   }
   if (!dyingFrames.empty()) {
     m_DyingAnimation = std::make_shared<Util::Animation>(
-        dyingFrames, true, frameIntervalMs, true, 0);
+        dyingFrames, true, frameIntervalMs, false, 0);
   }
 
   SetZIndex(1.0F);
@@ -94,6 +94,14 @@ void Zombie::Update(const float dt,
   }
 
   case State::Dying: {
+    if (m_DyingAnimation != nullptr) {
+      if (m_DyingAnimation->GetState() == Util::Animation::State::ENDED) {
+        m_Destroyed = true;
+        SetVisible(false);
+      }
+      break;
+    }
+
     m_DyingElapsed += dt;
     if (m_DyingElapsed >= m_DyingDurationSec) {
       m_Destroyed = true;
@@ -164,6 +172,8 @@ void Zombie::EnterState(const State newState) {
     m_DyingElapsed = 0.0F;
     m_CurrentTarget = nullptr;
     if (m_DyingAnimation != nullptr) {
+      m_DyingAnimation->SetCurrentFrame(0);
+      m_DyingAnimation->Play();
       SetDrawable(m_DyingAnimation);
     }
     break;
