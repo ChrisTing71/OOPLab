@@ -244,6 +244,7 @@ private:
   int m_BasicZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_BasicZombieDeadFramePaths;
   int m_BasicZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_CherryBombDeadFramePaths;
 
   std::vector<std::shared_ptr<Util::GameObject>> m_BasicZombieStands;
   std::vector<glm::vec2> m_BasicZombieStandPercents;

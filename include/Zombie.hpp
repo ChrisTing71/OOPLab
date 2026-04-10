@@ -16,7 +16,9 @@ public:
 
   Zombie(const std::vector<std::string> &walkingFrames,
          const std::vector<std::string> &attackingFrames,
-         const std::vector<std::string> &dyingFrames, float targetHeightPx,
+         const std::vector<std::string> &dyingFrames,
+         const std::vector<std::string> &cherryBombDyingFrames,
+         float targetHeightPx,
          std::size_t frameIntervalMs = 120, float moveSpeedPxPerSec = 40.0F,
          int health = 200);
 
@@ -39,6 +41,9 @@ private:
 
   State m_State = State::Walking;
   bool m_Destroyed = false;
+  bool m_IsCherryBombDeath = false;
+
+  float m_TargetHeightPx = 0.0F;
 
   float m_MoveSpeedPxPerSec = 40.0F;
   int m_Health = 200;
@@ -55,6 +60,7 @@ private:
   std::shared_ptr<Util::Animation> m_WalkingAnimation = nullptr;
   std::shared_ptr<Util::Animation> m_AttackingAnimation = nullptr;
   std::shared_ptr<Util::Animation> m_DyingAnimation = nullptr;
+  std::shared_ptr<Util::Animation> m_CherryBombDyingAnimation = nullptr;
 };
 
 #endif
