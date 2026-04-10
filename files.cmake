@@ -5,6 +5,7 @@ set(SRC_FILES
     LevelConfig.cpp
     LevelManager.cpp
     MenuScene.cpp
+    CherryBomb.cpp
     Nut.cpp
     Peashooter.cpp
     Sun.cpp
@@ -20,6 +21,7 @@ set(INCLUDE_FILES
     LevelConfig.hpp
     LevelManager.hpp
     MenuScene.hpp
+    CherryBomb.hpp
     Nut.hpp
     Peashooter.hpp
     Plant.hpp

@@ -162,7 +162,8 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
          m_Peashooters[static_cast<std::size_t>(index)] != nullptr ||
-         m_Nuts[static_cast<std::size_t>(index)] != nullptr;
+         m_Nuts[static_cast<std::size_t>(index)] != nullptr ||
+         m_CherryBombs[static_cast<std::size_t>(index)] != nullptr;
 }
 
 glm::vec2 App::ComputeGridCellLocalPosition(const int row,
@@ -249,6 +250,20 @@ bool App::PrepareNutFrames() {
       "Resources/nut/nut4/frames", "nut4_frame", m_Nut4FramePaths,
       m_Nut4FrameIntervalMs);
   return ok1 && ok2 && ok3 && ok4;
+}
+
+bool App::PrepareCherryBombFrames() {
+  return PrepareFramesFromGif("Resources/cherryBomb/cherryBomb.gif",
+                              "Resources/cherryBomb/cherryBomb_frames",
+                              "cherry_bomb_frame", m_CherryBombFramePaths,
+                              m_CherryBombFrameIntervalMs);
+}
+
+bool App::PrepareCherryBombBlowFrames() {
+  return PrepareFramesFromGif(
+      "Resources/cherryBomb/blow.gif", "Resources/cherryBomb/blow_frames",
+      "cherry_bomb_blow_frame", m_CherryBombBlowFramePaths,
+      m_CherryBombBlowFrameIntervalMs);
 }
 
 bool App::PreparePeashooterAttackFrames() {
@@ -435,12 +450,18 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
     }
   }
 
+  for (const auto &cherryBomb : m_CherryBombs) {
+    if (cherryBomb != nullptr && !cherryBomb->IsDead()) {
+      plants.push_back(cherryBomb);
+    }
+  }
+
   return plants;
 }
 
 void App::SetupPlantCards() {
   if (!PrepareSunflowerFrames() || !PreparePeashooterFrames() ||
-      !PrepareNutFrames()) {
+      !PrepareNutFrames() || !PrepareCherryBombFrames()) {
     return;
   }
 
@@ -468,6 +489,14 @@ void App::SetupPlantCards() {
           m_NutCardGrayMask,
           "Resources/cards/wall-nut.png",
           "Resources/cards/generated/wall-nut_gray.png",
+      },
+      {
+          PlantCardSelection::CHERRY_BOMB,
+          kCherryBombCost,
+          m_CherryBombCard,
+          m_CherryBombCardGrayMask,
+          "Resources/cards/cherry-bomb.png",
+          "Resources/cards/generated/cherry-bomb_gray.png",
       },
   };
 
@@ -579,6 +608,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
     } else if (card.selection == PlantCardSelection::NUT) {
       preview = std::make_shared<Util::Image>(m_Nut1FramePaths.front());
+    } else if (card.selection == PlantCardSelection::CHERRY_BOMB) {
+      preview = std::make_shared<Util::Image>(m_CherryBombFramePaths.front());
     }
 
     if (preview == nullptr) {
@@ -722,6 +753,35 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
   return true;
 }
 
+bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
+  if (!PrepareCherryBombFrames() || !PrepareCherryBombBlowFrames()) {
+    return false;
+  }
+
+  if (m_Sunlight < kCherryBombCost) {
+    return false;
+  }
+
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
+    return false;
+  }
+
+  auto cherryBomb = std::make_shared<CherryBomb>(
+      m_CherryBombFramePaths,
+      static_cast<std::size_t>(m_CherryBombFrameIntervalMs),
+      m_CherryBombBlowFramePaths,
+      static_cast<std::size_t>(m_CherryBombBlowFrameIntervalMs),
+      ComputePlantTargetHeight());
+  cherryBomb->m_Transform.translation = localPosition;
+
+  m_CherryBombs[static_cast<std::size_t>(index)] = cherryBomb;
+  m_Root.AddChild(cherryBomb);
+  m_Sunlight -= kCherryBombCost;
+  return true;
+}
+
 bool App::RemovePlantAtGridCell(const int row, const int column) {
   const int index = row * kGridColumns + column;
   bool removed = false;
@@ -744,6 +804,13 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   if (nut != nullptr) {
     m_Root.RemoveChild(nut);
     nut = nullptr;
+    removed = true;
+  }
+
+  auto &cherryBomb = m_CherryBombs[static_cast<std::size_t>(index)];
+  if (cherryBomb != nullptr) {
+    m_Root.RemoveChild(cherryBomb);
+    cherryBomb = nullptr;
     removed = true;
   }
 
@@ -1044,6 +1111,47 @@ void App::UpdateBasicZombie(const float deltaTime) {
   }
 }
 
+void App::UpdateCherryBombs(const float deltaTime) {
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  for (int index = 0; index < kGridCellCount; ++index) {
+    auto &cherryBomb = m_CherryBombs[static_cast<std::size_t>(index)];
+    if (cherryBomb == nullptr || cherryBomb->IsDead()) {
+      continue;
+    }
+
+    if (!cherryBomb->UpdateAndCheckExplode(deltaTime)) {
+      continue;
+    }
+
+    const int centerRow = index / kGridColumns;
+    const int centerColumn = index % kGridColumns;
+
+    for (auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+        continue;
+      }
+
+      const float zombiePixelX = zombie.object->m_Transform.translation.x +
+                                 m_CameraCurrentX +
+                                 static_cast<float>(WINDOW_WIDTH) * 0.5F;
+      const float zombieXPercent =
+          (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
+      const float normalizedX = (zombieXPercent - kGridMinXPercent) /
+                                (kGridMaxXPercent - kGridMinXPercent);
+      const int zombieColumn = glm::clamp(
+          static_cast<int>(normalizedX * kGridColumns), 0, kGridColumns - 1);
+
+      if (glm::abs(zombie.row - centerRow) <= 1 &&
+          glm::abs(zombieColumn - centerColumn) <= 1) {
+        zombie.object->TakeDamage(9999);
+      }
+    }
+  }
+}
+
 bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
   for (const auto &zombie : m_ActiveZombies) {
     if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
@@ -1257,6 +1365,13 @@ void App::RemoveDeadPlants() {
       nut = nullptr;
     }
   }
+
+  for (auto &cherryBomb : m_CherryBombs) {
+    if (cherryBomb != nullptr && cherryBomb->IsDead()) {
+      m_Root.RemoveChild(cherryBomb);
+      cherryBomb = nullptr;
+    }
+  }
 }
 
 void App::UpdatePlantCardUIState() {
@@ -1306,6 +1421,8 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
       placed = PlacePeashooterAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::NUT) {
       placed = PlaceNutAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::CHERRY_BOMB) {
+      placed = PlaceCherryBombAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::SHOVEL) {
       placed = RemovePlantAtGridCell(row, column);
     }
@@ -1368,6 +1485,67 @@ void App::DrawSunlightCounter() const {
 void App::Start() {
   LOG_TRACE("Start");
 
+  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetZIndex(0.0F);
+  m_Map->m_Transform.translation = {0.0F, 0.0F};
+
+  const glm::vec2 mapSize = m_Map->GetScaledSize();
+  constexpr float kZoom = 1.3F;
+  m_Map->m_Transform.scale = {
+      (static_cast<float>(WINDOW_WIDTH) / mapSize.x) * kZoom,
+      (static_cast<float>(WINDOW_HEIGHT) / mapSize.y) * kZoom,
+  };
+
+  m_MapScaledWidth = mapSize.x * m_Map->m_Transform.scale.x;
+  m_Root.AddChild(m_Map);
+
+  // Card slot UI - fixed to screen, shown only after camera settles
+  {
+    m_CardSlot->SetVisible(false);
+
+    constexpr float kTopPercent = 0.9F;
+    constexpr float kBottomPercent = 14.0F;
+    const float targetHeightPx = ((kBottomPercent - kTopPercent) / 100.0F) *
+                                 static_cast<float>(WINDOW_HEIGHT);
+    const glm::vec2 naturalSize = m_CardSlot->GetSourceSize();
+    if (naturalSize.y > 0.0F) {
+      const float slotScale = targetHeightPx / naturalSize.y;
+      m_CardSlot->m_Transform.scale = {slotScale, slotScale};
+      const float scaledWidth = naturalSize.x * slotScale;
+
+      // Left edge at x = 21 %
+      const float leftEdgePx = 0.21F * static_cast<float>(WINDOW_WIDTH);
+      const float centerPtsdX = leftEdgePx + scaledWidth * 0.5F -
+                                static_cast<float>(WINDOW_WIDTH) * 0.5F;
+
+      // Vertical centre between 0.9 % and 12 % from top
+      const float topPx =
+          (kTopPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float bottomPx =
+          (kBottomPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+      const float centerPtsdY =
+          static_cast<float>(WINDOW_HEIGHT) * 0.5F - (topPx + bottomPx) * 0.5F;
+
+      m_CardSlot->m_Transform.translation = {centerPtsdX, centerPtsdY};
+    }
+    m_UIRoot.AddChild(m_CardSlot);
+  }
+
+  SetupPlantCards();
+  PrepareCherryBombBlowFrames();
+  PreparePeashooterAttackFrames();
+  PrepareBasicZombieFrames();
+
+  m_PeashooterAttackCooldowns.fill(1.0F);
+
+  m_CameraStage = CameraStage::STAGE1_HOME;
+  m_CameraStageElapsed = 0.0F;
+  m_CameraInitialized = false;
+
+  m_BasicZombieStandReady = false;
+  m_ActiveZombies.clear();
+
+  m_CurrentState = State::UPDATE;
   // Initialize level manager
   m_LevelManager = std::make_shared<LevelManager>();
   m_MenuScene = std::make_shared<MenuScene>(m_LevelManager);
@@ -1700,6 +1878,7 @@ void App::UpdateGameplay(float deltaTime) {
     UpdateSuns(dt);
   }
   UpdateBasicZombie(dt);
+  UpdateCherryBombs(deltaTime);
   UpdatePeashooterCombat(dt);
 
   RemoveDeadPlants();
