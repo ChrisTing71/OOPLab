@@ -500,3 +500,8 @@ lib/
 
 # Doxygen generated files
 docs/html/
+
+# Runtime-generated resource outputs
+Resources/car/frames/
+Resources/cards/generated/
+Resources/zombies/cherry_bomb_dead_frames/
