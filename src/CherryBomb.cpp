@@ -4,10 +4,10 @@ CherryBomb::CherryBomb(const std::vector<std::string> &idleFramePaths,
                        const std::size_t idleFrameIntervalMs,
                        const std::vector<std::string> &blowFramePaths,
                        const std::size_t blowFrameIntervalMs,
-                       const float targetHeightPx, const float explodeDelaySec)
-    : m_TargetHeightPx(targetHeightPx), m_ExplodeDelaySec(explodeDelaySec) {
+                       const float targetHeightPx)
+    : m_TargetHeightPx(targetHeightPx) {
   m_IdleAnimation = std::make_shared<Util::Animation>(
-      idleFramePaths, true, idleFrameIntervalMs, true, 0);
+      idleFramePaths, true, idleFrameIntervalMs, false, 0);
   m_BlowAnimation = std::make_shared<Util::Animation>(
       blowFramePaths, true, blowFrameIntervalMs, false, 0);
 
@@ -22,15 +22,15 @@ bool CherryBomb::UpdateAndCheckExplode(const float deltaTime) {
   }
 
   if (!m_IsExploding) {
-    m_ExplodeDelaySec -= deltaTime;
-    if (m_ExplodeDelaySec > 0.0F) {
-      return false;
+    // Check if idle animation finished
+    if (m_IdleAnimation != nullptr &&
+        m_IdleAnimation->GetState() == Util::Animation::State::ENDED) {
+      m_IsExploding = true;
+      SetDrawable(m_BlowAnimation);
+      ApplyScaleForCurrentDrawable(m_TargetHeightPx * 3.0F);
+      return true;
     }
-
-    m_IsExploding = true;
-    SetDrawable(m_BlowAnimation);
-    ApplyScaleForCurrentDrawable(m_TargetHeightPx * 3.0F);
-    return true;
+    return false;
   }
 
   if (m_BlowAnimation != nullptr &&

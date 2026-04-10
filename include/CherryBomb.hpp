@@ -10,8 +10,7 @@ public:
   CherryBomb(const std::vector<std::string> &idleFramePaths,
              std::size_t idleFrameIntervalMs,
              const std::vector<std::string> &blowFramePaths,
-             std::size_t blowFrameIntervalMs, float targetHeightPx,
-             float explodeDelaySec = 1.0F);
+             std::size_t blowFrameIntervalMs, float targetHeightPx);
 
   bool UpdateAndCheckExplode(float deltaTime);
   bool IsExploding() const { return m_IsExploding; }
@@ -22,7 +21,6 @@ private:
 
 private:
   float m_TargetHeightPx = 0.0F;
-  float m_ExplodeDelaySec = 1.0F;
   bool m_IsExploding = false;
   bool m_IsFinished = false;
 

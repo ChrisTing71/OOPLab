@@ -253,9 +253,10 @@ bool App::PrepareNutFrames() {
 }
 
 bool App::PrepareCherryBombFrames() {
-  return PrepareFramesFromGif(
-      "Resources/cherryBomb/cherryBomb.gif", "Resources/cherryBomb/frames",
-      "cherry_bomb_frame", m_CherryBombFramePaths, m_CherryBombFrameIntervalMs);
+  return PrepareFramesFromGif("Resources/cherryBomb/cherryBomb.gif",
+                              "Resources/cherryBomb/cherryBomb_frames",
+                              "cherry_bomb_frame", m_CherryBombFramePaths,
+                              m_CherryBombFrameIntervalMs);
 }
 
 bool App::PrepareCherryBombBlowFrames() {
