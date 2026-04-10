@@ -121,12 +121,12 @@ void Zombie::Update(const float dt,
   }
 }
 
-void Zombie::TakeDamage(const int amount) {
+void Zombie::TakeDamage(const int amount, const bool isCherryBombDamage) {
   if (m_State == State::Dying || amount <= 0) {
     return;
   }
 
-  m_IsCherryBombDeath = (amount >= 9999);
+  m_IsCherryBombDeath = isCherryBombDamage;
   m_Health = glm::max(0, m_Health - amount);
   if (m_Health == 0) {
     EnterState(State::Dying);

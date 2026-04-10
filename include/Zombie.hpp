@@ -18,12 +18,11 @@ public:
          const std::vector<std::string> &attackingFrames,
          const std::vector<std::string> &dyingFrames,
          const std::vector<std::string> &cherryBombDyingFrames,
-         float targetHeightPx,
-         std::size_t frameIntervalMs = 120, float moveSpeedPxPerSec = 40.0F,
-         int health = 200);
+         float targetHeightPx, std::size_t frameIntervalMs = 120,
+         float moveSpeedPxPerSec = 40.0F, int health = 200);
 
   void Update(float dt, const std::vector<std::shared_ptr<Plant>> &plants);
-  void TakeDamage(int amount);
+  void TakeDamage(int amount, bool isCherryBombDamage = false);
 
   State GetState() const { return m_State; }
   bool IsDestroyed() const { return m_Destroyed; }

@@ -1296,7 +1296,7 @@ void App::UpdateCherryBombs(const float deltaTime) {
 
       if (glm::abs(zombie.row - centerRow) <= 1 &&
           glm::abs(zombieColumn - centerColumn) <= 1) {
-        zombie.object->TakeDamage(9999);
+        zombie.object->TakeDamage(9999, true);
       }
     }
   }
