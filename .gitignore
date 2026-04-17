@@ -48,6 +48,9 @@
 # CMake
 cmake-build-*/
 
+# Generated animation frame exports
+Resources/**/*frames/
+
 # Mongo Explorer plugin
 .idea/**/mongoSettings.xml
 
