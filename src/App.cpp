@@ -1113,7 +1113,16 @@ void App::UpdateBasicZombie(const float deltaTime) {
     const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
     const bool clearConditionOk =
         !candidate.waitUntilClear || !HasAliveZombie();
+    const bool isHugeWave =
+        (candidate.phaseId == "huge_wave") || (candidate.phaseType == "huge");
+
     if (hasReachedStart && clearConditionOk) {
+      if (isHugeWave) {
+        TriggerHugeWaveBanner();
+      }
+      if (isHugeWave && m_HugeWaveBannerRemainingSec > 0.0F) {
+        return;
+      }
       m_CurrentWaveGroup = candidate;
       m_WaveGroupActive = true;
       m_WaveGroupSpawnedCount = 0;
@@ -1643,6 +1652,65 @@ void App::DrawSunlightCounter() const {
   drawList->AddText(textPos, IM_COL32(28, 28, 20, 255), sunlightText.c_str());
 }
 
+void App::SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
+                            const std::string &imagePath, const float zIndex,
+                            const bool fullScreen) const {
+  auto image = std::make_shared<Util::Image>(imagePath);
+  banner->SetDrawable(image);
+  banner->SetZIndex(zIndex);
+  banner->SetVisible(false);
+
+  const glm::vec2 imageSize = image->GetSize();
+  if (imageSize.x <= 0.0F || imageSize.y <= 0.0F) {
+    return;
+  }
+
+  const float scaleX = static_cast<float>(WINDOW_WIDTH) / imageSize.x;
+  if (fullScreen) {
+    const float scaleY = static_cast<float>(WINDOW_HEIGHT) / imageSize.y;
+    banner->m_Transform.scale = {scaleX, scaleY};
+    banner->m_Transform.translation = {0.0F, 0.0F};
+    return;
+  }
+
+  const float uniformScale = scaleX;
+  banner->m_Transform.scale = {uniformScale, uniformScale};
+  banner->m_Transform.translation = {0.0F, 0.0F};
+}
+
+void App::TriggerHugeWaveBanner() {
+  if (m_HasShownHugeWaveBanner) {
+    return;
+  }
+
+  m_HasShownHugeWaveBanner = true;
+  m_HugeWaveBannerRemainingSec = 3.0F;
+  m_HugeWaveBanner->SetVisible(true);
+}
+
+void App::TriggerGameOverBanner() {
+  if (m_GameOverBannerRemainingSec > 0.0F) {
+    return;
+  }
+
+  m_GameOverBannerRemainingSec = 3.0F;
+  m_GameOverBanner->SetVisible(true);
+}
+
+void App::UpdateBannerState(const float deltaTime) {
+  if (m_HugeWaveBannerRemainingSec > 0.0F) {
+    m_HugeWaveBannerRemainingSec =
+        glm::max(0.0F, m_HugeWaveBannerRemainingSec - deltaTime);
+    m_HugeWaveBanner->SetVisible(m_HugeWaveBannerRemainingSec > 0.0F);
+  }
+
+  if (m_GameOverBannerRemainingSec > 0.0F) {
+    m_GameOverBannerRemainingSec =
+        glm::max(0.0F, m_GameOverBannerRemainingSec - deltaTime);
+    m_GameOverBanner->SetVisible(m_GameOverBannerRemainingSec > 0.0F);
+  }
+}
+
 void App::Start() {
   m_Map->SetDrawable(
       std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
@@ -1696,6 +1764,13 @@ void App::Start() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareLawnMowerFrames();
+
+  SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
+                    99.0F, false);
+  SetupBannerObject(m_GameOverBanner, "Resources/ui/banners/game_over.png",
+                    100.0F, true);
+  m_UIRoot.AddChild(m_HugeWaveBanner);
+  m_UIRoot.AddChild(m_GameOverBanner);
 
   m_PeashooterAttackCooldowns.fill(1.0F);
 
@@ -1868,6 +1943,10 @@ void App::Update() {
   case State::LEVEL_FAILED:
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
 
+    if (m_GameOverBannerRemainingSec > 0.0F) {
+      break;
+    }
+
     // Show level failed screen
     ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
                             ImGuiCond_Always);
@@ -1955,6 +2034,12 @@ void App::InitializeLevel() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareLawnMowerFrames();
+  SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
+                    99.0F, false);
+  SetupBannerObject(m_GameOverBanner, "Resources/ui/banners/game_over.png",
+                    100.0F, true);
+  m_UIRoot.AddChild(m_HugeWaveBanner);
+  m_UIRoot.AddChild(m_GameOverBanner);
 
   // Load level configuration
   const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
@@ -1987,6 +2072,9 @@ void App::InitializeLevel() {
   m_WaveGroupActive = false;
   m_WaveGroupSpawnedCount = 0;
   m_WaveGroupSpawnTimer = 0.0F;
+  m_HasShownHugeWaveBanner = false;
+  m_HugeWaveBannerRemainingSec = 0.0F;
+  m_GameOverBannerRemainingSec = 0.0F;
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
@@ -2031,6 +2119,12 @@ void App::ResetLevelRuntimeState() {
   m_WaveGroupSpawnedCount = 0;
   m_WaveGroupSpawnTimer = 0.0F;
   m_CurrentWaveGroup = {};
+  m_HasShownHugeWaveBanner = false;
+  m_HugeWaveBannerRemainingSec = 0.0F;
+  m_GameOverBannerRemainingSec = 0.0F;
+
+  m_HugeWaveBanner->SetVisible(false);
+  m_GameOverBanner->SetVisible(false);
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
@@ -2038,6 +2132,8 @@ void App::ResetLevelRuntimeState() {
 
 void App::UpdateGameplay(float deltaTime) {
   const float dt = deltaTime;
+
+  UpdateBannerState(dt);
 
   // If level failed, just render the frozen scene without updating game logic
   if (m_CurrentState == State::LEVEL_FAILED) {
@@ -2072,7 +2168,15 @@ void App::UpdateGameplay(float deltaTime) {
         (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
 
     if (zombieXPercent < kGridMinXPercent) {
+      TriggerGameOverBanner();
+      m_LevelManager->CompleteLevelFailure();
       m_CurrentState = State::LEVEL_FAILED;
+
+      // Force one immediate render update so the game-over banner is visible
+      // as soon as the fail state is entered.
+      m_Root.Update();
+      m_UIRoot.Update();
+      DrawSunlightCounter();
       return;
     }
   }

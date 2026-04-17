@@ -180,6 +180,12 @@ private:
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
+  void SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
+                         const std::string &imagePath, float zIndex,
+                         bool fullScreen) const;
+  void TriggerHugeWaveBanner();
+  void TriggerGameOverBanner();
+  void UpdateBannerState(float deltaTime);
 
 private:
   static constexpr float kGridMinXPercent = 21.0F;
@@ -276,6 +282,9 @@ private:
   int m_WaveGroupSpawnedCount = 0;
   float m_WaveGroupSpawnTimer = 0.0F;
   ZombieWaveSpawnGroup m_CurrentWaveGroup;
+  bool m_HasShownHugeWaveBanner = false;
+  float m_HugeWaveBannerRemainingSec = 0.0F;
+  float m_GameOverBannerRemainingSec = 0.0F;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
@@ -299,6 +308,10 @@ private:
   std::shared_ptr<Util::GameObject> m_Shovel =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_SelectedPlantPreview =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_HugeWaveBanner =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_GameOverBanner =
       std::make_shared<Util::GameObject>();
   std::vector<PlantCardUI> m_PlantCards;
 
