@@ -4,6 +4,7 @@ set(SRC_FILES
     CardSlot.cpp
     LevelConfig.cpp
     LevelManager.cpp
+    LeaderZombie.cpp
     MenuScene.cpp
     CherryBomb.cpp
     Nut.cpp
@@ -20,6 +21,7 @@ set(INCLUDE_FILES
     CardSlot.hpp
     LevelConfig.hpp
     LevelManager.hpp
+    LeaderZombie.hpp
     MenuScene.hpp
     CherryBomb.hpp
     Nut.hpp

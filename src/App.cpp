@@ -3,7 +3,10 @@
 #include <filesystem>
 #include <random>
 
+#include "BasicZombie.hpp"
 #include "config.hpp"
+
+#include "LeaderZombie.hpp"
 
 #include "Util/Animation.hpp"
 #include "Util/Image.hpp"
@@ -295,6 +298,35 @@ bool App::PrepareBasicZombieFrames() {
   return okStand && okWalk && okEat && okDead && okCherryBombDead;
 }
 
+bool App::PrepareLeaderZombieFrames() {
+  const bool okStand = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Idle - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/stand_frames",
+      "leader_stand_frame", m_LeaderZombieStandFramePaths,
+      m_LeaderZombieStandFrameIntervalMs);
+  const bool okWalk = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Walking - Flag "
+      "Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/walk_frames",
+      "leader_walk_frame", m_LeaderZombieWalkFramePaths,
+      m_LeaderZombieWalkFrameIntervalMs);
+  const bool okEat = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Eating - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/eat_frames",
+      "leader_eat_frame", m_LeaderZombieEatFramePaths,
+      m_LeaderZombieEatFrameIntervalMs);
+  const bool okDead = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Death - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/dead_frames",
+      "leader_dead_frame", m_LeaderZombieDeadFramePaths,
+      m_LeaderZombieDeadFrameIntervalMs);
+  return okStand && okWalk && okEat && okDead;
+}
+
 bool App::PrepareLawnMowerFrames() {
   return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
                               "Resources/gameplay/defense/lawn_mower/frames",
@@ -309,9 +341,17 @@ void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
   for (const auto &phase : waveConfig.phases) {
     timelineSec += phase.startDelaySec;
     for (int i = 0; i < phase.repeat; ++i) {
+      ZombieWavePhaseConfig phaseCopy = phase;
+      if (phaseCopy.zombieTypes.empty()) {
+        phaseCopy.zombieTypes = {phaseCopy.zombieType};
+      }
+      phaseCopy.zombieTypes = BuildZombieTypeSequence(phaseCopy);
       m_ZombieWavePlan.push_back({
           phase.id,
           phase.type,
+          phase.zombieType,
+          phaseCopy.zombieTypes,
+          phaseCopy.randomOrder,
           timelineSec,
           phase.zombiesPerWave,
           phase.spawnIntervalSec,
@@ -335,6 +375,57 @@ int App::GetPlannedZombieCount() const {
   return totalZombies;
 }
 
+std::vector<std::string>
+App::BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const {
+  std::vector<std::string> sequence;
+  sequence.reserve(static_cast<std::size_t>(phase.zombiesPerWave));
+
+  if (!phase.zombieTypes.empty()) {
+    for (int index = 0; index < phase.zombiesPerWave; ++index) {
+      sequence.push_back(phase.zombieTypes[static_cast<std::size_t>(index) %
+                                           phase.zombieTypes.size()]);
+    }
+  } else {
+    const std::string zombieType =
+        phase.zombieType.empty() ? "basic" : phase.zombieType;
+    for (int index = 0; index < phase.zombiesPerWave; ++index) {
+      sequence.push_back(zombieType);
+    }
+  }
+
+  if (phase.randomOrder && sequence.size() > 1) {
+    std::shuffle(sequence.begin(), sequence.end(), m_Random);
+  }
+
+  return sequence;
+}
+
+const std::vector<std::string> &
+App::GetZombiePreviewStandFramePaths(const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    if (!m_LeaderZombieStandFramePaths.empty()) {
+      return m_LeaderZombieStandFramePaths;
+    }
+  }
+  return m_BasicZombieStandFramePaths;
+}
+
+int App::GetZombiePreviewStandFrameIntervalMs(
+    const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    return m_LeaderZombieStandFrameIntervalMs;
+  }
+  return m_BasicZombieStandFrameIntervalMs;
+}
+
+float App::ComputeZombiePreviewTargetHeight(
+    const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    return ComputeZombieTargetHeight() * 1.4F;
+  }
+  return ComputeZombieTargetHeight();
+}
+
 void App::ClearBasicZombieStandPreview() {
   for (const auto &stand : m_BasicZombieStands) {
     if (stand != nullptr) {
@@ -348,7 +439,8 @@ void App::ClearBasicZombieStandPreview() {
 }
 
 void App::PrepareBasicZombieStandPreview() {
-  if (m_BasicZombieStandFramePaths.empty()) {
+  if (m_BasicZombieStandFramePaths.empty() &&
+      m_LeaderZombieStandFramePaths.empty()) {
     return;
   }
 
@@ -393,52 +485,88 @@ void App::PrepareBasicZombieStandPreview() {
   }
   std::uniform_int_distribution<int> yIndexDist(
       0, static_cast<int>(yCandidates.size()) - 1);
-  const float targetHeight = ComputeZombieTargetHeight();
+  for (const auto &waveGroup : m_ZombieWavePlan) {
+    for (int index = 0; index < waveGroup.zombieCount; ++index) {
+      const float xPercent = xDist(m_Random);
+      const float yPercent =
+          yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+      const std::string previewType =
+          waveGroup.zombieTypes.empty()
+              ? waveGroup.zombieType
+              : waveGroup.zombieTypes[static_cast<std::size_t>(index) %
+                                      waveGroup.zombieTypes.size()];
 
-  for (int index = 0; index < zombieCount; ++index) {
-    const float xPercent = xDist(m_Random);
-    const float yPercent =
-        yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+      const auto &standFrames = GetZombiePreviewStandFramePaths(previewType);
+      const int standFrameIntervalMs =
+          GetZombiePreviewStandFrameIntervalMs(previewType);
+      const float previewTargetHeight =
+          ComputeZombiePreviewTargetHeight(previewType);
 
-    auto stand = std::make_shared<Util::GameObject>();
-    auto standAnim = std::make_shared<Util::Animation>(
-        m_BasicZombieStandFramePaths, true,
-        static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
-    stand->SetDrawable(standAnim);
-    const float yNormalized = glm::clamp(
-        (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
-        0.0F, 1.0F);
-    stand->SetZIndex(0.8F + yNormalized * 0.6F);
-    stand->SetVisible(true);
-    stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
+      auto stand = std::make_shared<Util::GameObject>();
+      auto standAnim = std::make_shared<Util::Animation>(
+          standFrames, true, static_cast<std::size_t>(standFrameIntervalMs),
+          true, 0);
+      stand->SetDrawable(standAnim);
+      const float yNormalized = glm::clamp(
+          (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
+          0.0F, 1.0F);
+      stand->SetZIndex(0.8F + yNormalized * 0.6F);
+      stand->SetVisible(true);
+      stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
 
-    const glm::vec2 standSize = standAnim->GetSize();
-    if (standSize.y > 0.0F) {
-      const float scale = targetHeight / standSize.y;
-      stand->m_Transform.scale = {scale, scale};
+      const glm::vec2 standSize = standAnim->GetSize();
+      if (standSize.y > 0.0F) {
+        const float scale = previewTargetHeight / standSize.y;
+        stand->m_Transform.scale = {scale, scale};
+      }
+
+      if (m_BasicZombieStands.empty()) {
+        m_BasicZombieStandYPercent = yPercent;
+      }
+
+      m_BasicZombieStandPercents.push_back({xPercent, yPercent});
+      m_Root.AddChild(stand);
+      m_BasicZombieStands.push_back(stand);
     }
-
-    if (index == 0) {
-      m_BasicZombieStandYPercent = yPercent;
-    }
-
-    m_BasicZombieStandPercents.push_back({xPercent, yPercent});
-    m_Root.AddChild(stand);
-    m_BasicZombieStands.push_back(stand);
   }
 }
 
-void App::SpawnBasicZombieAtRow(const int row) {
+void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
   const float yPercent = GridRowCenterPercent(row) - cellHeightPercent * 0.1F;
   const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
 
-  auto zombie = std::make_shared<BasicZombie>(
-      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths, m_CherryBombDeadFramePaths,
-      ComputeZombieTargetHeight(),
-      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  const std::string normalizedZombieType =
+      zombieType.empty() ? std::string("basic") : zombieType;
+  const bool isLeaderZombie = normalizedZombieType == "leader";
+  const std::vector<std::string> &walkingFrames =
+      isLeaderZombie && !m_LeaderZombieWalkFramePaths.empty()
+          ? m_LeaderZombieWalkFramePaths
+          : m_BasicZombieWalkFramePaths;
+  const std::vector<std::string> &attackingFrames =
+      isLeaderZombie && !m_LeaderZombieEatFramePaths.empty()
+          ? m_LeaderZombieEatFramePaths
+          : m_BasicZombieEatFramePaths;
+  const std::vector<std::string> &dyingFrames =
+      isLeaderZombie && !m_LeaderZombieDeadFramePaths.empty()
+          ? m_LeaderZombieDeadFramePaths
+          : m_BasicZombieDeadFramePaths;
+  const float targetHeight =
+      ComputeZombieTargetHeight() * (isLeaderZombie ? 1.4F : 1.0F);
+
+  std::shared_ptr<Zombie> zombie;
+  if (isLeaderZombie) {
+    zombie = std::make_shared<LeaderZombie>(
+        walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  } else {
+    zombie = std::make_shared<BasicZombie>(
+        walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  }
   zombie->m_Transform.translation = spawnPos;
 
   m_Root.AddChild(zombie);
@@ -1138,7 +1266,14 @@ void App::UpdateBasicZombie(const float deltaTime) {
   while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
          m_WaveGroupSpawnTimer <= 0.0F) {
     const int spawnRow = PickSpawnRowForWaveSpawn();
-    SpawnBasicZombieAtRow(spawnRow);
+    const std::string zombieType =
+        m_CurrentWaveGroup.zombieTypes.empty()
+            ? m_CurrentWaveGroup.zombieType
+            : m_CurrentWaveGroup
+                  .zombieTypes[static_cast<std::size_t>(
+                                   m_WaveGroupSpawnedCount) %
+                               m_CurrentWaveGroup.zombieTypes.size()];
+    SpawnZombieAtRow(spawnRow, zombieType);
     ++m_WaveGroupSpawnedCount;
 
     if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
@@ -2033,6 +2168,7 @@ void App::InitializeLevel() {
   SetupPlantCards();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  PrepareLeaderZombieFrames();
   PrepareLawnMowerFrames();
   SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
                     99.0F, false);
