@@ -1,5 +1,7 @@
 #include "Zombie.hpp"
 
+#include <limits>
+
 namespace {
 glm::vec2 MinCorner(const Util::GameObject &obj) {
   const glm::vec2 size = obj.GetScaledSize();
@@ -147,17 +149,33 @@ bool Zombie::CheckAABBCollision(const Util::GameObject &a,
 
 std::shared_ptr<Plant> Zombie::FindCollidingPlant(
     const std::vector<std::shared_ptr<Plant>> &plants) const {
+  std::shared_ptr<Plant> bestTarget = nullptr;
+  float bestDistance = std::numeric_limits<float>::max();
+  const float zombieX = m_Transform.translation.x;
+
   for (const auto &plant : plants) {
     if (plant == nullptr || plant->IsDead()) {
       continue;
     }
 
-    if (CheckAABBCollision(*this, *plant)) {
-      return plant;
+    // Only consider plants that are in front of the zombie's movement
+    // direction. Zombies move left, so ignore plants that are behind.
+    if (plant->m_Transform.translation.x > zombieX) {
+      continue;
+    }
+
+    if (!CheckAABBCollision(*this, *plant)) {
+      continue;
+    }
+
+    const float distance = zombieX - plant->m_Transform.translation.x;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestTarget = plant;
     }
   }
 
-  return nullptr;
+  return bestTarget;
 }
 
 void Zombie::EnterState(const State newState) {
