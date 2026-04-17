@@ -5,7 +5,6 @@
 
 #include "pch.hpp" // IWYU pragma: export
 
-#include "BasicZombie.hpp"
 #include "CardSlot.hpp"
 #include "CherryBomb.hpp"
 #include "LevelManager.hpp"
@@ -16,6 +15,7 @@
 #include "Sunflower.hpp"
 #include "Util/Renderer.hpp"
 #include "WaveConfig.hpp"
+#include "Zombie.hpp"
 
 class App {
 public:
@@ -72,7 +72,7 @@ public:
   };
 
   struct ActiveZombie {
-    std::shared_ptr<BasicZombie> object;
+    std::shared_ptr<Zombie> object;
     int row = 0;
   };
 
@@ -88,6 +88,9 @@ public:
   struct ZombieWaveSpawnGroup {
     std::string phaseId;
     std::string phaseType;
+    std::string zombieType = "basic";
+    std::vector<std::string> zombieTypes;
+    bool randomOrder = false;
     float earliestStartSec = 0.0F;
     int zombieCount = 0;
     float spawnIntervalSec = 0.0F;
@@ -132,6 +135,7 @@ private:
   bool PrepareCherryBombBlowFrames();
   bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
+  bool PrepareLeaderZombieFrames();
   bool PrepareLawnMowerFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
@@ -158,9 +162,15 @@ private:
   void ClearBasicZombieStandPreview();
   int GetPlannedZombieCount() const;
   void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
-  void SpawnBasicZombieAtRow(int row);
+  std::vector<std::string>
+  BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const;
+  void SpawnZombieAtRow(int row, const std::string &zombieType);
   int PickSpawnRowForWaveSpawn();
   bool HasAliveZombie() const;
+  const std::vector<std::string> &
+  GetZombiePreviewStandFramePaths(const std::string &zombieType) const;
+  int GetZombiePreviewStandFrameIntervalMs(const std::string &zombieType) const;
+  float ComputeZombiePreviewTargetHeight(const std::string &zombieType) const;
   void UpdateBasicZombie(float deltaTime);
   void SetupLawnMowers();
   void UpdateLawnMowers(float deltaTime);
@@ -180,6 +190,12 @@ private:
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
+  void SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
+                         const std::string &imagePath, float zIndex,
+                         bool fullScreen) const;
+  void TriggerHugeWaveBanner();
+  void TriggerGameOverBanner();
+  void UpdateBannerState(float deltaTime);
 
 private:
   static constexpr float kGridMinXPercent = 21.0F;
@@ -238,10 +254,10 @@ private:
   std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
   std::vector<ActivePea> m_Peas;
   std::vector<std::string> m_PeaHitFramePaths = {
-      "Resources/peashooter_bullet/hit1.png",
-      "Resources/peashooter_bullet/hit2.png",
-      "Resources/peashooter_bullet/hit3.png",
-      "Resources/peashooter_bullet/hit4.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit1.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit2.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit3.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit4.png",
   };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
   std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
@@ -250,12 +266,20 @@ private:
 
   std::vector<std::string> m_BasicZombieStandFramePaths;
   int m_BasicZombieStandFrameIntervalMs = 120;
+  std::vector<std::string> m_LeaderZombieStandFramePaths;
+  int m_LeaderZombieStandFrameIntervalMs = 120;
   std::vector<std::string> m_BasicZombieWalkFramePaths;
   int m_BasicZombieWalkFrameIntervalMs = 120;
   std::vector<std::string> m_BasicZombieEatFramePaths;
   int m_BasicZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_BasicZombieDeadFramePaths;
   int m_BasicZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_LeaderZombieWalkFramePaths;
+  int m_LeaderZombieWalkFrameIntervalMs = 120;
+  std::vector<std::string> m_LeaderZombieEatFramePaths;
+  int m_LeaderZombieEatFrameIntervalMs = 120;
+  std::vector<std::string> m_LeaderZombieDeadFramePaths;
+  int m_LeaderZombieDeadFrameIntervalMs = 120;
   std::vector<std::string> m_LawnMowerFramePaths;
   int m_LawnMowerFrameIntervalMs = 100;
   std::vector<std::string> m_CherryBombDeadFramePaths;
@@ -276,6 +300,9 @@ private:
   int m_WaveGroupSpawnedCount = 0;
   float m_WaveGroupSpawnTimer = 0.0F;
   ZombieWaveSpawnGroup m_CurrentWaveGroup;
+  bool m_HasShownHugeWaveBanner = false;
+  float m_HugeWaveBannerRemainingSec = 0.0F;
+  float m_GameOverBannerRemainingSec = 0.0F;
 
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
@@ -300,6 +327,10 @@ private:
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_SelectedPlantPreview =
       std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_HugeWaveBanner =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_GameOverBanner =
+      std::make_shared<Util::GameObject>();
   std::vector<PlantCardUI> m_PlantCards;
 
   PlantCardSelection m_SelectedPlant = PlantCardSelection::NONE;
@@ -309,7 +340,7 @@ private:
   float m_SunSpawnCountdown = 0.0F;
   std::vector<ActiveSun> m_Suns;
   int m_Sunlight = 0;
-  std::mt19937 m_Random{std::random_device{}()};
+  mutable std::mt19937 m_Random{std::random_device{}()};
 
   // Level and Menu Management
   std::shared_ptr<LevelManager> m_LevelManager;

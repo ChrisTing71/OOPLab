@@ -73,6 +73,17 @@ LevelConfig LevelConfigLoader::LoadFromFile(const std::string &filePath) {
         if (phaseJson.contains("type")) {
           phase.type = phaseJson["type"].get<std::string>();
         }
+        if (phaseJson.contains("zombieType")) {
+          phase.zombieType = phaseJson["zombieType"].get<std::string>();
+        }
+        if (phaseJson.contains("zombieTypes") &&
+            phaseJson["zombieTypes"].is_array()) {
+          phase.zombieTypes =
+              phaseJson["zombieTypes"].get<std::vector<std::string>>();
+        }
+        if (phaseJson.contains("randomOrder")) {
+          phase.randomOrder = phaseJson["randomOrder"].get<bool>();
+        }
         if (phaseJson.contains("startDelaySec")) {
           phase.startDelaySec = phaseJson["startDelaySec"].get<float>();
         }
@@ -133,6 +144,9 @@ LevelConfig LevelConfigLoader::GetDefaultConfig(int levelId) {
   ZombieWavePhaseConfig defaultPhase;
   defaultPhase.id = "default_wave";
   defaultPhase.type = "sub";
+  defaultPhase.zombieType = "basic";
+  defaultPhase.zombieTypes = {"basic"};
+  defaultPhase.randomOrder = false;
   defaultPhase.startDelaySec = 5.0F;
   defaultPhase.repeat = 1;
   defaultPhase.zombiesPerWave = 1;

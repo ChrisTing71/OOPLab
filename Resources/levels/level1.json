@@ -16,18 +16,28 @@
             "spawnIntervalSec": 0.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader",
+            "zombieTypes": [
+                "leader"
+            ],
+            "randomOrder": false
         },
         {
             "id": "sub_waves",
             "type": "sub",
             "startDelaySec": 18.0,
             "repeat": 2,
-            "zombiesPerWave": 2,
+            "zombiesPerWave": 3,
             "spawnIntervalSec": 5.0,
             "waveIntervalSec": 20.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "basic",
+            "zombieTypes": [
+                "basic",
+                "leader",
+                "basic"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
@@ -38,7 +48,14 @@
             "spawnIntervalSec": 5.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieType": "basic",
+            "zombieTypes": [
+                "basic",
+                "leader",
+                "basic",
+                "basic"
+            ],
+            "randomOrder": true
         }
     ],
     "reward": {

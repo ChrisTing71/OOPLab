@@ -3,7 +3,7 @@
 #include "Util/Image.hpp"
 
 Sun::Sun(const float targetHeightPx) {
-  auto image = std::make_shared<Util::Image>("Resources/sun.png");
+  auto image = std::make_shared<Util::Image>("Resources/ui/hud/sun.png");
   SetDrawable(image);
   SetZIndex(11.0F);
 

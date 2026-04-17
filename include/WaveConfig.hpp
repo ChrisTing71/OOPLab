@@ -7,6 +7,9 @@
 struct ZombieWavePhaseConfig {
   std::string id;
   std::string type;
+  std::string zombieType = "basic";
+  std::vector<std::string> zombieTypes;
+  bool randomOrder = false;
   float startDelaySec = 0.0F;
   int repeat = 1;
   int zombiesPerWave = 1;

@@ -80,6 +80,13 @@ bool WaveConfigLoader::LoadFromFile(const std::string &path,
 
     phase.id = phaseJson["id"].get<std::string>();
     phase.type = phaseJson["type"].get<std::string>();
+    phase.zombieType = phaseJson.value("zombieType", std::string("basic"));
+    if (phaseJson.contains("zombieTypes") &&
+        phaseJson["zombieTypes"].is_array()) {
+      phase.zombieTypes =
+          phaseJson["zombieTypes"].get<std::vector<std::string>>();
+    }
+    phase.randomOrder = phaseJson.value("randomOrder", false);
     phase.startDelaySec = phaseJson.value("startDelaySec", 0.0F);
     phase.repeat = phaseJson.value("repeat", 1);
     phase.zombiesPerWave = phaseJson.value("zombiesPerWave", 1);

@@ -3,7 +3,10 @@
 #include <filesystem>
 #include <random>
 
+#include "BasicZombie.hpp"
 #include "config.hpp"
+
+#include "LeaderZombie.hpp"
 
 #include "Util/Animation.hpp"
 #include "Util/Image.hpp"
@@ -206,88 +209,127 @@ float App::ComputePlantPreviewTargetHeight() const {
 }
 
 bool App::PrepareSunflowerFrames() {
-  return PrepareFramesFromGif(
-      "Resources/sunflower.gif", "Resources/sunflower_frames",
-      "sunflower_frame", m_SunflowerFramePaths, m_SunflowerFrameIntervalMs);
+  return PrepareFramesFromGif("Resources/gameplay/plants/sunflower.gif",
+                              "Resources/gameplay/plants/sunflower_frames",
+                              "sunflower_frame", m_SunflowerFramePaths,
+                              m_SunflowerFrameIntervalMs);
 }
 
 bool App::PreparePeashooterFrames() {
-  return PrepareFramesFromGif(
-      "Resources/peashooter.gif", "Resources/peashooter_frames",
-      "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
+  return PrepareFramesFromGif("Resources/gameplay/plants/peashooter.gif",
+                              "Resources/gameplay/plants/peashooter_frames",
+                              "peashooter_frame", m_PeashooterFramePaths,
+                              m_PeashooterFrameIntervalMs);
 }
 
 bool App::PrepareNutFrames() {
   const bool ok1 = PrepareFramesFromGif(
-      "Resources/nut/nut1/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle.gif",
-      "Resources/nut/nut1/frames", "nut1_frame", m_Nut1FramePaths,
-      m_Nut1FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut1/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle.gif",
+      "Resources/gameplay/plants/wall_nut/nut1/frames", "nut1_frame",
+      m_Nut1FramePaths, m_Nut1FrameIntervalMs);
   const bool ok2 = PrepareFramesFromGif(
-      "Resources/nut/nut2/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 1.gif",
-      "Resources/nut/nut2/frames", "nut2_frame", m_Nut2FramePaths,
-      m_Nut2FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut2/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 1.gif",
+      "Resources/gameplay/plants/wall_nut/nut2/frames", "nut2_frame",
+      m_Nut2FramePaths, m_Nut2FrameIntervalMs);
   const bool ok3 = PrepareFramesFromGif(
-      "Resources/nut/nut3/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 2.gif",
-      "Resources/nut/nut3/frames", "nut3_frame", m_Nut3FramePaths,
-      m_Nut3FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut3/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 2.gif",
+      "Resources/gameplay/plants/wall_nut/nut3/frames", "nut3_frame",
+      m_Nut3FramePaths, m_Nut3FrameIntervalMs);
   const bool ok4 = PrepareFramesFromGif(
-      "Resources/nut/nut4/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 3.gif",
-      "Resources/nut/nut4/frames", "nut4_frame", m_Nut4FramePaths,
-      m_Nut4FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut4/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 3.gif",
+      "Resources/gameplay/plants/wall_nut/nut4/frames", "nut4_frame",
+      m_Nut4FramePaths, m_Nut4FrameIntervalMs);
   return ok1 && ok2 && ok3 && ok4;
 }
 
 bool App::PrepareCherryBombFrames() {
-  return PrepareFramesFromGif("Resources/cherryBomb/cherryBomb.gif",
-                              "Resources/cherryBomb/cherryBomb_frames",
-                              "cherry_bomb_frame", m_CherryBombFramePaths,
-                              m_CherryBombFrameIntervalMs);
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/cherry_bomb/cherryBomb.gif",
+      "Resources/gameplay/plants/cherry_bomb/cherryBomb_frames",
+      "cherry_bomb_frame", m_CherryBombFramePaths, m_CherryBombFrameIntervalMs);
 }
 
 bool App::PrepareCherryBombBlowFrames() {
   return PrepareFramesFromGif(
-      "Resources/cherryBomb/blow.gif", "Resources/cherryBomb/blow_frames",
+      "Resources/gameplay/plants/cherry_bomb/blow.gif",
+      "Resources/gameplay/plants/cherry_bomb/blow_frames",
       "cherry_bomb_blow_frame", m_CherryBombBlowFramePaths,
       m_CherryBombBlowFrameIntervalMs);
 }
 
 bool App::PreparePeashooterAttackFrames() {
   return PrepareFramesFromGif(
-      "Resources/peashooter_attack/Mobile - Plants vs. Zombies 2 - "
-      "Peashooter - Attack.gif",
-      "Resources/peashooter_attack/frames", "peashooter_attack_frame",
-      m_PeashooterAttackFramePaths, m_PeashooterAttackFrameIntervalMs);
+      "Resources/gameplay/plants/peashooter_attack/Mobile - Plants vs. "
+      "Zombies 2 - Peashooter - Attack.gif",
+      "Resources/gameplay/plants/peashooter_attack/frames",
+      "peashooter_attack_frame", m_PeashooterAttackFramePaths,
+      m_PeashooterAttackFrameIntervalMs);
 }
 
 bool App::PrepareBasicZombieFrames() {
   const bool okStand = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/stand.gif",
-      "Resources/zombies/basic_zombie/stand_frames", "stand_frame",
-      m_BasicZombieStandFramePaths, m_BasicZombieStandFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/stand.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/stand_frames",
+      "stand_frame", m_BasicZombieStandFramePaths,
+      m_BasicZombieStandFrameIntervalMs);
   const bool okWalk = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/walk.gif",
-      "Resources/zombies/basic_zombie/walk_frames", "walk_frame",
-      m_BasicZombieWalkFramePaths, m_BasicZombieWalkFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/walk.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/walk_frames",
+      "walk_frame", m_BasicZombieWalkFramePaths,
+      m_BasicZombieWalkFrameIntervalMs);
   const bool okEat = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/eat.gif",
-      "Resources/zombies/basic_zombie/eat_frames", "eat_frame",
+      "Resources/gameplay/enemies/zombies/basic_zombie/eat.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/eat_frames", "eat_frame",
       m_BasicZombieEatFramePaths, m_BasicZombieEatFrameIntervalMs);
   const bool okDead = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/dead.gif",
-      "Resources/zombies/basic_zombie/dead_frames", "dead_frame",
-      m_BasicZombieDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/dead.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/dead_frames",
+      "dead_frame", m_BasicZombieDeadFramePaths,
+      m_BasicZombieDeadFrameIntervalMs);
   const bool okCherryBombDead = PrepareFramesFromGif(
-      "Resources/zombies/cherry_bomb_dead.gif",
-      "Resources/zombies/cherry_bomb_dead_frames", "cherry_bomb_dead_frame",
-      m_CherryBombDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/cherry_bomb_dead.gif",
+      "Resources/gameplay/enemies/zombies/cherry_bomb_dead_frames",
+      "cherry_bomb_dead_frame", m_CherryBombDeadFramePaths,
+      m_BasicZombieDeadFrameIntervalMs);
   return okStand && okWalk && okEat && okDead && okCherryBombDead;
 }
 
+bool App::PrepareLeaderZombieFrames() {
+  const bool okStand = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Idle - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/stand_frames",
+      "leader_stand_frame", m_LeaderZombieStandFramePaths,
+      m_LeaderZombieStandFrameIntervalMs);
+  const bool okWalk = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Walking - Flag "
+      "Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/walk_frames",
+      "leader_walk_frame", m_LeaderZombieWalkFramePaths,
+      m_LeaderZombieWalkFrameIntervalMs);
+  const bool okEat = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Eating - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/eat_frames",
+      "leader_eat_frame", m_LeaderZombieEatFramePaths,
+      m_LeaderZombieEatFrameIntervalMs);
+  const bool okDead = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/leader_zombie/"
+      "Mobile - Plants vs. Zombies 2 - Basic Zombie - Death - Flag Zombie.gif",
+      "Resources/gameplay/enemies/zombies/leader_zombie/dead_frames",
+      "leader_dead_frame", m_LeaderZombieDeadFramePaths,
+      m_LeaderZombieDeadFrameIntervalMs);
+  return okStand && okWalk && okEat && okDead;
+}
+
 bool App::PrepareLawnMowerFrames() {
-  return PrepareFramesFromGif("Resources/car/car.gif", "Resources/car/frames",
+  return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
+                              "Resources/gameplay/defense/lawn_mower/frames",
                               "car_frame", m_LawnMowerFramePaths,
                               m_LawnMowerFrameIntervalMs);
 }
@@ -299,9 +341,17 @@ void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
   for (const auto &phase : waveConfig.phases) {
     timelineSec += phase.startDelaySec;
     for (int i = 0; i < phase.repeat; ++i) {
+      ZombieWavePhaseConfig phaseCopy = phase;
+      if (phaseCopy.zombieTypes.empty()) {
+        phaseCopy.zombieTypes = {phaseCopy.zombieType};
+      }
+      phaseCopy.zombieTypes = BuildZombieTypeSequence(phaseCopy);
       m_ZombieWavePlan.push_back({
           phase.id,
           phase.type,
+          phase.zombieType,
+          phaseCopy.zombieTypes,
+          phaseCopy.randomOrder,
           timelineSec,
           phase.zombiesPerWave,
           phase.spawnIntervalSec,
@@ -325,6 +375,57 @@ int App::GetPlannedZombieCount() const {
   return totalZombies;
 }
 
+std::vector<std::string>
+App::BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const {
+  std::vector<std::string> sequence;
+  sequence.reserve(static_cast<std::size_t>(phase.zombiesPerWave));
+
+  if (!phase.zombieTypes.empty()) {
+    for (int index = 0; index < phase.zombiesPerWave; ++index) {
+      sequence.push_back(phase.zombieTypes[static_cast<std::size_t>(index) %
+                                           phase.zombieTypes.size()]);
+    }
+  } else {
+    const std::string zombieType =
+        phase.zombieType.empty() ? "basic" : phase.zombieType;
+    for (int index = 0; index < phase.zombiesPerWave; ++index) {
+      sequence.push_back(zombieType);
+    }
+  }
+
+  if (phase.randomOrder && sequence.size() > 1) {
+    std::shuffle(sequence.begin(), sequence.end(), m_Random);
+  }
+
+  return sequence;
+}
+
+const std::vector<std::string> &
+App::GetZombiePreviewStandFramePaths(const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    if (!m_LeaderZombieStandFramePaths.empty()) {
+      return m_LeaderZombieStandFramePaths;
+    }
+  }
+  return m_BasicZombieStandFramePaths;
+}
+
+int App::GetZombiePreviewStandFrameIntervalMs(
+    const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    return m_LeaderZombieStandFrameIntervalMs;
+  }
+  return m_BasicZombieStandFrameIntervalMs;
+}
+
+float App::ComputeZombiePreviewTargetHeight(
+    const std::string &zombieType) const {
+  if (zombieType == "leader") {
+    return ComputeZombieTargetHeight() * 1.4F;
+  }
+  return ComputeZombieTargetHeight();
+}
+
 void App::ClearBasicZombieStandPreview() {
   for (const auto &stand : m_BasicZombieStands) {
     if (stand != nullptr) {
@@ -338,7 +439,8 @@ void App::ClearBasicZombieStandPreview() {
 }
 
 void App::PrepareBasicZombieStandPreview() {
-  if (m_BasicZombieStandFramePaths.empty()) {
+  if (m_BasicZombieStandFramePaths.empty() &&
+      m_LeaderZombieStandFramePaths.empty()) {
     return;
   }
 
@@ -383,52 +485,88 @@ void App::PrepareBasicZombieStandPreview() {
   }
   std::uniform_int_distribution<int> yIndexDist(
       0, static_cast<int>(yCandidates.size()) - 1);
-  const float targetHeight = ComputeZombieTargetHeight();
+  for (const auto &waveGroup : m_ZombieWavePlan) {
+    for (int index = 0; index < waveGroup.zombieCount; ++index) {
+      const float xPercent = xDist(m_Random);
+      const float yPercent =
+          yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+      const std::string previewType =
+          waveGroup.zombieTypes.empty()
+              ? waveGroup.zombieType
+              : waveGroup.zombieTypes[static_cast<std::size_t>(index) %
+                                      waveGroup.zombieTypes.size()];
 
-  for (int index = 0; index < zombieCount; ++index) {
-    const float xPercent = xDist(m_Random);
-    const float yPercent =
-        yCandidates[static_cast<std::size_t>(yIndexDist(m_Random))];
+      const auto &standFrames = GetZombiePreviewStandFramePaths(previewType);
+      const int standFrameIntervalMs =
+          GetZombiePreviewStandFrameIntervalMs(previewType);
+      const float previewTargetHeight =
+          ComputeZombiePreviewTargetHeight(previewType);
 
-    auto stand = std::make_shared<Util::GameObject>();
-    auto standAnim = std::make_shared<Util::Animation>(
-        m_BasicZombieStandFramePaths, true,
-        static_cast<std::size_t>(m_BasicZombieStandFrameIntervalMs), true, 0);
-    stand->SetDrawable(standAnim);
-    const float yNormalized = glm::clamp(
-        (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
-        0.0F, 1.0F);
-    stand->SetZIndex(0.8F + yNormalized * 0.6F);
-    stand->SetVisible(true);
-    stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
+      auto stand = std::make_shared<Util::GameObject>();
+      auto standAnim = std::make_shared<Util::Animation>(
+          standFrames, true, static_cast<std::size_t>(standFrameIntervalMs),
+          true, 0);
+      stand->SetDrawable(standAnim);
+      const float yNormalized = glm::clamp(
+          (yPercent - kGridMinYPercent) / (kGridMaxYPercent - kGridMinYPercent),
+          0.0F, 1.0F);
+      stand->SetZIndex(0.8F + yNormalized * 0.6F);
+      stand->SetVisible(true);
+      stand->m_Transform.translation = toRightCameraLocal(xPercent, yPercent);
 
-    const glm::vec2 standSize = standAnim->GetSize();
-    if (standSize.y > 0.0F) {
-      const float scale = targetHeight / standSize.y;
-      stand->m_Transform.scale = {scale, scale};
+      const glm::vec2 standSize = standAnim->GetSize();
+      if (standSize.y > 0.0F) {
+        const float scale = previewTargetHeight / standSize.y;
+        stand->m_Transform.scale = {scale, scale};
+      }
+
+      if (m_BasicZombieStands.empty()) {
+        m_BasicZombieStandYPercent = yPercent;
+      }
+
+      m_BasicZombieStandPercents.push_back({xPercent, yPercent});
+      m_Root.AddChild(stand);
+      m_BasicZombieStands.push_back(stand);
     }
-
-    if (index == 0) {
-      m_BasicZombieStandYPercent = yPercent;
-    }
-
-    m_BasicZombieStandPercents.push_back({xPercent, yPercent});
-    m_Root.AddChild(stand);
-    m_BasicZombieStands.push_back(stand);
   }
 }
 
-void App::SpawnBasicZombieAtRow(const int row) {
+void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
   const float yPercent = GridRowCenterPercent(row) - cellHeightPercent * 0.1F;
   const glm::vec2 spawnPos = ScreenPercentToRootLocal(104.0F, yPercent);
 
-  auto zombie = std::make_shared<BasicZombie>(
-      m_BasicZombieWalkFramePaths, m_BasicZombieEatFramePaths,
-      m_BasicZombieDeadFramePaths, m_CherryBombDeadFramePaths,
-      ComputeZombieTargetHeight(),
-      static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  const std::string normalizedZombieType =
+      zombieType.empty() ? std::string("basic") : zombieType;
+  const bool isLeaderZombie = normalizedZombieType == "leader";
+  const std::vector<std::string> &walkingFrames =
+      isLeaderZombie && !m_LeaderZombieWalkFramePaths.empty()
+          ? m_LeaderZombieWalkFramePaths
+          : m_BasicZombieWalkFramePaths;
+  const std::vector<std::string> &attackingFrames =
+      isLeaderZombie && !m_LeaderZombieEatFramePaths.empty()
+          ? m_LeaderZombieEatFramePaths
+          : m_BasicZombieEatFramePaths;
+  const std::vector<std::string> &dyingFrames =
+      isLeaderZombie && !m_LeaderZombieDeadFramePaths.empty()
+          ? m_LeaderZombieDeadFramePaths
+          : m_BasicZombieDeadFramePaths;
+  const float targetHeight =
+      ComputeZombieTargetHeight() * (isLeaderZombie ? 1.4F : 1.0F);
+
+  std::shared_ptr<Zombie> zombie;
+  if (isLeaderZombie) {
+    zombie = std::make_shared<LeaderZombie>(
+        walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  } else {
+    zombie = std::make_shared<BasicZombie>(
+        walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  }
   zombie->m_Transform.translation = spawnPos;
 
   m_Root.AddChild(zombie);
@@ -523,32 +661,32 @@ void App::SetupPlantCards() {
           kSunflowerCost,
           m_SunflowerCard,
           m_SunflowerCardGrayMask,
-          "Resources/cards/sunflower.png",
-          "Resources/cards/generated/sunflower_gray.png",
+          "Resources/ui/cards/sunflower.png",
+          "Resources/ui/cards/generated/sunflower_gray.png",
       },
       {
           PlantCardSelection::PEASHOOTER,
           kPeashooterCost,
           m_PeashooterCard,
           m_PeashooterCardGrayMask,
-          "Resources/cards/peashooter.png",
-          "Resources/cards/generated/peashooter_gray.png",
+          "Resources/ui/cards/peashooter.png",
+          "Resources/ui/cards/generated/peashooter_gray.png",
       },
       {
           PlantCardSelection::NUT,
           kNutCost,
           m_NutCard,
           m_NutCardGrayMask,
-          "Resources/cards/wall-nut.png",
-          "Resources/cards/generated/wall-nut_gray.png",
+          "Resources/ui/cards/wall-nut.png",
+          "Resources/ui/cards/generated/wall-nut_gray.png",
       },
       {
           PlantCardSelection::CHERRY_BOMB,
           kCherryBombCost,
           m_CherryBombCard,
           m_CherryBombCardGrayMask,
-          "Resources/cards/cherry-bomb.png",
-          "Resources/cards/generated/cherry-bomb_gray.png",
+          "Resources/ui/cards/cherry-bomb.png",
+          "Resources/ui/cards/generated/cherry-bomb_gray.png",
       },
   };
 
@@ -615,13 +753,13 @@ void App::SetupPlantCards() {
   }
 
   constexpr float kShovelShellGap = 18.0F;
-  setupCard(m_ShovelShell, "Resources/shovel/shovel_shell.png",
+  setupCard(m_ShovelShell, "Resources/ui/tools/shovel/shovel_shell.png",
             sourceSize.x + kShovelShellGap);
   m_ShovelShell->SetZIndex(12.2F);
   m_ShovelShell->SetVisible(false);
 
   auto shovelImage =
-      std::make_shared<Util::Image>("Resources/shovel/shovel.png");
+      std::make_shared<Util::Image>("Resources/ui/tools/shovel/shovel.png");
   m_Shovel->SetDrawable(shovelImage);
   m_Shovel->SetZIndex(12.8F);
   m_Shovel->SetVisible(false);
@@ -683,7 +821,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
       IsPixelInsideObject(m_Shovel, pixelX, pixelY)) {
     m_SelectedPlant = PlantCardSelection::SHOVEL;
 
-    auto preview = std::make_shared<Util::Image>("Resources/shovel/shovel.png");
+    auto preview =
+        std::make_shared<Util::Image>("Resources/ui/tools/shovel/shovel.png");
     m_SelectedPlantPreview->SetDrawable(preview);
     m_SelectedPlantPreview->m_Transform.scale = m_Shovel->m_Transform.scale;
     m_SelectedPlantPreview->SetVisible(true);
@@ -1102,7 +1241,16 @@ void App::UpdateBasicZombie(const float deltaTime) {
     const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
     const bool clearConditionOk =
         !candidate.waitUntilClear || !HasAliveZombie();
+    const bool isHugeWave =
+        (candidate.phaseId == "huge_wave") || (candidate.phaseType == "huge");
+
     if (hasReachedStart && clearConditionOk) {
+      if (isHugeWave) {
+        TriggerHugeWaveBanner();
+      }
+      if (isHugeWave && m_HugeWaveBannerRemainingSec > 0.0F) {
+        return;
+      }
       m_CurrentWaveGroup = candidate;
       m_WaveGroupActive = true;
       m_WaveGroupSpawnedCount = 0;
@@ -1118,7 +1266,14 @@ void App::UpdateBasicZombie(const float deltaTime) {
   while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
          m_WaveGroupSpawnTimer <= 0.0F) {
     const int spawnRow = PickSpawnRowForWaveSpawn();
-    SpawnBasicZombieAtRow(spawnRow);
+    const std::string zombieType =
+        m_CurrentWaveGroup.zombieTypes.empty()
+            ? m_CurrentWaveGroup.zombieType
+            : m_CurrentWaveGroup
+                  .zombieTypes[static_cast<std::size_t>(
+                                   m_WaveGroupSpawnedCount) %
+                               m_CurrentWaveGroup.zombieTypes.size()];
+    SpawnZombieAtRow(spawnRow, zombieType);
     ++m_WaveGroupSpawnedCount;
 
     if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
@@ -1324,8 +1479,8 @@ void App::SpawnPeaFromPeashooter(
   }
 
   auto pea = std::make_shared<Util::GameObject>();
-  auto peaImage =
-      std::make_shared<Util::Image>("Resources/peashooter_bullet/pea.png");
+  auto peaImage = std::make_shared<Util::Image>(
+      "Resources/gameplay/plants/peashooter_bullet/pea.png");
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
@@ -1632,8 +1787,68 @@ void App::DrawSunlightCounter() const {
   drawList->AddText(textPos, IM_COL32(28, 28, 20, 255), sunlightText.c_str());
 }
 
+void App::SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
+                            const std::string &imagePath, const float zIndex,
+                            const bool fullScreen) const {
+  auto image = std::make_shared<Util::Image>(imagePath);
+  banner->SetDrawable(image);
+  banner->SetZIndex(zIndex);
+  banner->SetVisible(false);
+
+  const glm::vec2 imageSize = image->GetSize();
+  if (imageSize.x <= 0.0F || imageSize.y <= 0.0F) {
+    return;
+  }
+
+  const float scaleX = static_cast<float>(WINDOW_WIDTH) / imageSize.x;
+  if (fullScreen) {
+    const float scaleY = static_cast<float>(WINDOW_HEIGHT) / imageSize.y;
+    banner->m_Transform.scale = {scaleX, scaleY};
+    banner->m_Transform.translation = {0.0F, 0.0F};
+    return;
+  }
+
+  const float uniformScale = scaleX;
+  banner->m_Transform.scale = {uniformScale, uniformScale};
+  banner->m_Transform.translation = {0.0F, 0.0F};
+}
+
+void App::TriggerHugeWaveBanner() {
+  if (m_HasShownHugeWaveBanner) {
+    return;
+  }
+
+  m_HasShownHugeWaveBanner = true;
+  m_HugeWaveBannerRemainingSec = 3.0F;
+  m_HugeWaveBanner->SetVisible(true);
+}
+
+void App::TriggerGameOverBanner() {
+  if (m_GameOverBannerRemainingSec > 0.0F) {
+    return;
+  }
+
+  m_GameOverBannerRemainingSec = 3.0F;
+  m_GameOverBanner->SetVisible(true);
+}
+
+void App::UpdateBannerState(const float deltaTime) {
+  if (m_HugeWaveBannerRemainingSec > 0.0F) {
+    m_HugeWaveBannerRemainingSec =
+        glm::max(0.0F, m_HugeWaveBannerRemainingSec - deltaTime);
+    m_HugeWaveBanner->SetVisible(m_HugeWaveBannerRemainingSec > 0.0F);
+  }
+
+  if (m_GameOverBannerRemainingSec > 0.0F) {
+    m_GameOverBannerRemainingSec =
+        glm::max(0.0F, m_GameOverBannerRemainingSec - deltaTime);
+    m_GameOverBanner->SetVisible(m_GameOverBannerRemainingSec > 0.0F);
+  }
+}
+
 void App::Start() {
-  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetDrawable(
+      std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
 
@@ -1684,6 +1899,13 @@ void App::Start() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareLawnMowerFrames();
+
+  SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
+                    99.0F, false);
+  SetupBannerObject(m_GameOverBanner, "Resources/ui/banners/game_over.png",
+                    100.0F, true);
+  m_UIRoot.AddChild(m_HugeWaveBanner);
+  m_UIRoot.AddChild(m_GameOverBanner);
 
   m_PeashooterAttackCooldowns.fill(1.0F);
 
@@ -1856,6 +2078,10 @@ void App::Update() {
   case State::LEVEL_FAILED:
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
 
+    if (m_GameOverBannerRemainingSec > 0.0F) {
+      break;
+    }
+
     // Show level failed screen
     ImGui::SetNextWindowPos(ImVec2(WINDOW_WIDTH * 0.25F, WINDOW_HEIGHT * 0.3F),
                             ImGuiCond_Always);
@@ -1891,7 +2117,8 @@ void App::InitializeLevel() {
 
   ResetLevelRuntimeState();
 
-  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetDrawable(
+      std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
   m_Map->m_Transform.scale = {1.0F, 1.0F};
@@ -1941,7 +2168,14 @@ void App::InitializeLevel() {
   SetupPlantCards();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  PrepareLeaderZombieFrames();
   PrepareLawnMowerFrames();
+  SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
+                    99.0F, false);
+  SetupBannerObject(m_GameOverBanner, "Resources/ui/banners/game_over.png",
+                    100.0F, true);
+  m_UIRoot.AddChild(m_HugeWaveBanner);
+  m_UIRoot.AddChild(m_GameOverBanner);
 
   // Load level configuration
   const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
@@ -1974,6 +2208,9 @@ void App::InitializeLevel() {
   m_WaveGroupActive = false;
   m_WaveGroupSpawnedCount = 0;
   m_WaveGroupSpawnTimer = 0.0F;
+  m_HasShownHugeWaveBanner = false;
+  m_HugeWaveBannerRemainingSec = 0.0F;
+  m_GameOverBannerRemainingSec = 0.0F;
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
@@ -2018,6 +2255,12 @@ void App::ResetLevelRuntimeState() {
   m_WaveGroupSpawnedCount = 0;
   m_WaveGroupSpawnTimer = 0.0F;
   m_CurrentWaveGroup = {};
+  m_HasShownHugeWaveBanner = false;
+  m_HugeWaveBannerRemainingSec = 0.0F;
+  m_GameOverBannerRemainingSec = 0.0F;
+
+  m_HugeWaveBanner->SetVisible(false);
+  m_GameOverBanner->SetVisible(false);
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
@@ -2025,6 +2268,8 @@ void App::ResetLevelRuntimeState() {
 
 void App::UpdateGameplay(float deltaTime) {
   const float dt = deltaTime;
+
+  UpdateBannerState(dt);
 
   // If level failed, just render the frozen scene without updating game logic
   if (m_CurrentState == State::LEVEL_FAILED) {
@@ -2059,7 +2304,15 @@ void App::UpdateGameplay(float deltaTime) {
         (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
 
     if (zombieXPercent < kGridMinXPercent) {
+      TriggerGameOverBanner();
+      m_LevelManager->CompleteLevelFailure();
       m_CurrentState = State::LEVEL_FAILED;
+
+      // Force one immediate render update so the game-over banner is visible
+      // as soon as the fail state is entered.
+      m_Root.Update();
+      m_UIRoot.Update();
+      DrawSunlightCounter();
       return;
     }
   }

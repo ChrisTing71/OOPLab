@@ -12,7 +12,7 @@
             "type": "setup",
             "startDelaySec": 35.0,
             "repeat": 1,
-            "zombiesPerWave": 2,
+            "zombiesPerWave": 1,
             "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
