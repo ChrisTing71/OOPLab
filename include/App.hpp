@@ -238,10 +238,10 @@ private:
   std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
   std::vector<ActivePea> m_Peas;
   std::vector<std::string> m_PeaHitFramePaths = {
-      "Resources/peashooter_bullet/hit1.png",
-      "Resources/peashooter_bullet/hit2.png",
-      "Resources/peashooter_bullet/hit3.png",
-      "Resources/peashooter_bullet/hit4.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit1.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit2.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit3.png",
+      "Resources/gameplay/plants/peashooter_bullet/hit4.png",
   };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
   std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};

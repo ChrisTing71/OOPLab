@@ -206,88 +206,98 @@ float App::ComputePlantPreviewTargetHeight() const {
 }
 
 bool App::PrepareSunflowerFrames() {
-  return PrepareFramesFromGif(
-      "Resources/sunflower.gif", "Resources/sunflower_frames",
-      "sunflower_frame", m_SunflowerFramePaths, m_SunflowerFrameIntervalMs);
+  return PrepareFramesFromGif("Resources/gameplay/plants/sunflower.gif",
+                              "Resources/gameplay/plants/sunflower_frames",
+                              "sunflower_frame", m_SunflowerFramePaths,
+                              m_SunflowerFrameIntervalMs);
 }
 
 bool App::PreparePeashooterFrames() {
-  return PrepareFramesFromGif(
-      "Resources/peashooter.gif", "Resources/peashooter_frames",
-      "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
+  return PrepareFramesFromGif("Resources/gameplay/plants/peashooter.gif",
+                              "Resources/gameplay/plants/peashooter_frames",
+                              "peashooter_frame", m_PeashooterFramePaths,
+                              m_PeashooterFrameIntervalMs);
 }
 
 bool App::PrepareNutFrames() {
   const bool ok1 = PrepareFramesFromGif(
-      "Resources/nut/nut1/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle.gif",
-      "Resources/nut/nut1/frames", "nut1_frame", m_Nut1FramePaths,
-      m_Nut1FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut1/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle.gif",
+      "Resources/gameplay/plants/wall_nut/nut1/frames", "nut1_frame",
+      m_Nut1FramePaths, m_Nut1FrameIntervalMs);
   const bool ok2 = PrepareFramesFromGif(
-      "Resources/nut/nut2/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 1.gif",
-      "Resources/nut/nut2/frames", "nut2_frame", m_Nut2FramePaths,
-      m_Nut2FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut2/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 1.gif",
+      "Resources/gameplay/plants/wall_nut/nut2/frames", "nut2_frame",
+      m_Nut2FramePaths, m_Nut2FrameIntervalMs);
   const bool ok3 = PrepareFramesFromGif(
-      "Resources/nut/nut3/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 2.gif",
-      "Resources/nut/nut3/frames", "nut3_frame", m_Nut3FramePaths,
-      m_Nut3FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut3/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 2.gif",
+      "Resources/gameplay/plants/wall_nut/nut3/frames", "nut3_frame",
+      m_Nut3FramePaths, m_Nut3FrameIntervalMs);
   const bool ok4 = PrepareFramesFromGif(
-      "Resources/nut/nut4/Mobile - Plants vs. Zombies 2 - Wall-nut - Idle - "
-      "Degrade 3.gif",
-      "Resources/nut/nut4/frames", "nut4_frame", m_Nut4FramePaths,
-      m_Nut4FrameIntervalMs);
+      "Resources/gameplay/plants/wall_nut/nut4/Mobile - Plants vs. Zombies 2 - "
+      "Wall-nut - Idle - Degrade 3.gif",
+      "Resources/gameplay/plants/wall_nut/nut4/frames", "nut4_frame",
+      m_Nut4FramePaths, m_Nut4FrameIntervalMs);
   return ok1 && ok2 && ok3 && ok4;
 }
 
 bool App::PrepareCherryBombFrames() {
-  return PrepareFramesFromGif("Resources/cherryBomb/cherryBomb.gif",
-                              "Resources/cherryBomb/cherryBomb_frames",
-                              "cherry_bomb_frame", m_CherryBombFramePaths,
-                              m_CherryBombFrameIntervalMs);
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/cherry_bomb/cherryBomb.gif",
+      "Resources/gameplay/plants/cherry_bomb/cherryBomb_frames",
+      "cherry_bomb_frame", m_CherryBombFramePaths, m_CherryBombFrameIntervalMs);
 }
 
 bool App::PrepareCherryBombBlowFrames() {
   return PrepareFramesFromGif(
-      "Resources/cherryBomb/blow.gif", "Resources/cherryBomb/blow_frames",
+      "Resources/gameplay/plants/cherry_bomb/blow.gif",
+      "Resources/gameplay/plants/cherry_bomb/blow_frames",
       "cherry_bomb_blow_frame", m_CherryBombBlowFramePaths,
       m_CherryBombBlowFrameIntervalMs);
 }
 
 bool App::PreparePeashooterAttackFrames() {
   return PrepareFramesFromGif(
-      "Resources/peashooter_attack/Mobile - Plants vs. Zombies 2 - "
-      "Peashooter - Attack.gif",
-      "Resources/peashooter_attack/frames", "peashooter_attack_frame",
-      m_PeashooterAttackFramePaths, m_PeashooterAttackFrameIntervalMs);
+      "Resources/gameplay/plants/peashooter_attack/Mobile - Plants vs. "
+      "Zombies 2 - Peashooter - Attack.gif",
+      "Resources/gameplay/plants/peashooter_attack/frames",
+      "peashooter_attack_frame", m_PeashooterAttackFramePaths,
+      m_PeashooterAttackFrameIntervalMs);
 }
 
 bool App::PrepareBasicZombieFrames() {
   const bool okStand = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/stand.gif",
-      "Resources/zombies/basic_zombie/stand_frames", "stand_frame",
-      m_BasicZombieStandFramePaths, m_BasicZombieStandFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/stand.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/stand_frames",
+      "stand_frame", m_BasicZombieStandFramePaths,
+      m_BasicZombieStandFrameIntervalMs);
   const bool okWalk = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/walk.gif",
-      "Resources/zombies/basic_zombie/walk_frames", "walk_frame",
-      m_BasicZombieWalkFramePaths, m_BasicZombieWalkFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/walk.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/walk_frames",
+      "walk_frame", m_BasicZombieWalkFramePaths,
+      m_BasicZombieWalkFrameIntervalMs);
   const bool okEat = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/eat.gif",
-      "Resources/zombies/basic_zombie/eat_frames", "eat_frame",
+      "Resources/gameplay/enemies/zombies/basic_zombie/eat.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/eat_frames", "eat_frame",
       m_BasicZombieEatFramePaths, m_BasicZombieEatFrameIntervalMs);
   const bool okDead = PrepareFramesFromGif(
-      "Resources/zombies/basic_zombie/dead.gif",
-      "Resources/zombies/basic_zombie/dead_frames", "dead_frame",
-      m_BasicZombieDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/basic_zombie/dead.gif",
+      "Resources/gameplay/enemies/zombies/basic_zombie/dead_frames",
+      "dead_frame", m_BasicZombieDeadFramePaths,
+      m_BasicZombieDeadFrameIntervalMs);
   const bool okCherryBombDead = PrepareFramesFromGif(
-      "Resources/zombies/cherry_bomb_dead.gif",
-      "Resources/zombies/cherry_bomb_dead_frames", "cherry_bomb_dead_frame",
-      m_CherryBombDeadFramePaths, m_BasicZombieDeadFrameIntervalMs);
+      "Resources/gameplay/enemies/zombies/cherry_bomb_dead.gif",
+      "Resources/gameplay/enemies/zombies/cherry_bomb_dead_frames",
+      "cherry_bomb_dead_frame", m_CherryBombDeadFramePaths,
+      m_BasicZombieDeadFrameIntervalMs);
   return okStand && okWalk && okEat && okDead && okCherryBombDead;
 }
 
 bool App::PrepareLawnMowerFrames() {
-  return PrepareFramesFromGif("Resources/car/car.gif", "Resources/car/frames",
+  return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
+                              "Resources/gameplay/defense/lawn_mower/frames",
                               "car_frame", m_LawnMowerFramePaths,
                               m_LawnMowerFrameIntervalMs);
 }
@@ -523,32 +533,32 @@ void App::SetupPlantCards() {
           kSunflowerCost,
           m_SunflowerCard,
           m_SunflowerCardGrayMask,
-          "Resources/cards/sunflower.png",
-          "Resources/cards/generated/sunflower_gray.png",
+          "Resources/ui/cards/sunflower.png",
+          "Resources/ui/cards/generated/sunflower_gray.png",
       },
       {
           PlantCardSelection::PEASHOOTER,
           kPeashooterCost,
           m_PeashooterCard,
           m_PeashooterCardGrayMask,
-          "Resources/cards/peashooter.png",
-          "Resources/cards/generated/peashooter_gray.png",
+          "Resources/ui/cards/peashooter.png",
+          "Resources/ui/cards/generated/peashooter_gray.png",
       },
       {
           PlantCardSelection::NUT,
           kNutCost,
           m_NutCard,
           m_NutCardGrayMask,
-          "Resources/cards/wall-nut.png",
-          "Resources/cards/generated/wall-nut_gray.png",
+          "Resources/ui/cards/wall-nut.png",
+          "Resources/ui/cards/generated/wall-nut_gray.png",
       },
       {
           PlantCardSelection::CHERRY_BOMB,
           kCherryBombCost,
           m_CherryBombCard,
           m_CherryBombCardGrayMask,
-          "Resources/cards/cherry-bomb.png",
-          "Resources/cards/generated/cherry-bomb_gray.png",
+          "Resources/ui/cards/cherry-bomb.png",
+          "Resources/ui/cards/generated/cherry-bomb_gray.png",
       },
   };
 
@@ -615,13 +625,13 @@ void App::SetupPlantCards() {
   }
 
   constexpr float kShovelShellGap = 18.0F;
-  setupCard(m_ShovelShell, "Resources/shovel/shovel_shell.png",
+  setupCard(m_ShovelShell, "Resources/ui/tools/shovel/shovel_shell.png",
             sourceSize.x + kShovelShellGap);
   m_ShovelShell->SetZIndex(12.2F);
   m_ShovelShell->SetVisible(false);
 
   auto shovelImage =
-      std::make_shared<Util::Image>("Resources/shovel/shovel.png");
+      std::make_shared<Util::Image>("Resources/ui/tools/shovel/shovel.png");
   m_Shovel->SetDrawable(shovelImage);
   m_Shovel->SetZIndex(12.8F);
   m_Shovel->SetVisible(false);
@@ -683,7 +693,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
       IsPixelInsideObject(m_Shovel, pixelX, pixelY)) {
     m_SelectedPlant = PlantCardSelection::SHOVEL;
 
-    auto preview = std::make_shared<Util::Image>("Resources/shovel/shovel.png");
+    auto preview =
+        std::make_shared<Util::Image>("Resources/ui/tools/shovel/shovel.png");
     m_SelectedPlantPreview->SetDrawable(preview);
     m_SelectedPlantPreview->m_Transform.scale = m_Shovel->m_Transform.scale;
     m_SelectedPlantPreview->SetVisible(true);
@@ -1324,8 +1335,8 @@ void App::SpawnPeaFromPeashooter(
   }
 
   auto pea = std::make_shared<Util::GameObject>();
-  auto peaImage =
-      std::make_shared<Util::Image>("Resources/peashooter_bullet/pea.png");
+  auto peaImage = std::make_shared<Util::Image>(
+      "Resources/gameplay/plants/peashooter_bullet/pea.png");
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
@@ -1633,7 +1644,8 @@ void App::DrawSunlightCounter() const {
 }
 
 void App::Start() {
-  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetDrawable(
+      std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
 
@@ -1891,7 +1903,8 @@ void App::InitializeLevel() {
 
   ResetLevelRuntimeState();
 
-  m_Map->SetDrawable(std::make_shared<Util::Image>("Resources/map.png"));
+  m_Map->SetDrawable(
+      std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
   m_Map->m_Transform.scale = {1.0F, 1.0F};
