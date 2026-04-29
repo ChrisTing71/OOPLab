@@ -18,10 +18,22 @@ FetchContent_Declare(
     # GIT_REPOSITORY  https://github.com/ntut-open-source-club/practical-tools-for-simple-design.git
     # GIT_TAG         <git_tag>
 
-    SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/PTSD
 )
 
 FetchContent_MakeAvailable(ptsd)
+
+# Keep PTSD customizations in this repo instead of manually editing fetched
+# framework sources.
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ptsd_overrides/include/Util/Renderer.hpp
+    ${ptsd_SOURCE_DIR}/include/Util/Renderer.hpp
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ptsd_overrides/src/Util/Renderer.cpp
+    ${ptsd_SOURCE_DIR}/src/Util/Renderer.cpp
+    COPYONLY
+)
 
 FetchContent_Declare(
     nlohmann_json
@@ -60,7 +72,7 @@ else()
 endif()
 
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${DEPENDENCY_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/PTSD/include)
+target_include_directories(${PROJECT_NAME} PRIVATE ${ptsd_SOURCE_DIR}/include)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(${PROJECT_NAME}

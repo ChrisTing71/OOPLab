@@ -2,6 +2,7 @@ set(SRC_FILES
     App.cpp
     BasicZombie.cpp
     CardSlot.cpp
+    ConeheadZombie.cpp
     LevelConfig.cpp
     LevelManager.cpp
     LeaderZombie.cpp
@@ -19,6 +20,7 @@ set(INCLUDE_FILES
     App.hpp
     BasicZombie.hpp
     CardSlot.hpp
+    ConeheadZombie.hpp
     LevelConfig.hpp
     LevelManager.hpp
     LeaderZombie.hpp

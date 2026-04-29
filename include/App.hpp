@@ -136,6 +136,7 @@ private:
   bool PreparePeashooterAttackFrames();
   bool PrepareBasicZombieFrames();
   bool PrepareLeaderZombieFrames();
+  bool PrepareConeheadZombieFrames();
   bool PrepareLawnMowerFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
@@ -211,6 +212,11 @@ private:
   static constexpr int kNutCost = 50;
   static constexpr int kCherryBombCost = 150;
 
+  // Zombie animation size scale factors
+  static constexpr float kBasicZombieHeightScale = 1.0F;
+  static constexpr float kLeaderZombieHeightScale = 1.4F;
+  static constexpr float kConeheadZombieHeightScale = 1.2F;
+
 private:
   State m_CurrentState = State::START;
   std::shared_ptr<Util::GameObject> m_Map =
@@ -280,6 +286,14 @@ private:
   int m_LeaderZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_LeaderZombieDeadFramePaths;
   int m_LeaderZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_ConeheadZombieStandFramePaths;
+  int m_ConeheadZombieStandFrameIntervalMs = 120;
+  std::vector<std::string> m_ConeheadZombieWalkFramePaths;
+  int m_ConeheadZombieWalkFrameIntervalMs = 120;
+  std::vector<std::string> m_ConeheadZombieEatFramePaths;
+  int m_ConeheadZombieEatFrameIntervalMs = 120;
+  std::vector<std::string> m_ConeheadZombieDeadFramePaths;
+  int m_ConeheadZombieDeadFrameIntervalMs = 120;
   std::vector<std::string> m_LawnMowerFramePaths;
   int m_LawnMowerFrameIntervalMs = 100;
   std::vector<std::string> m_CherryBombDeadFramePaths;

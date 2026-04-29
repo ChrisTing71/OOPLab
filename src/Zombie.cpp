@@ -208,13 +208,18 @@ void Zombie::EnterState(const State newState) {
       m_DyingAnimation->Play();
       SetDrawable(m_DyingAnimation);
     }
-    // Adjust scale to match target height
-    if (m_TargetHeightPx > 0.0F) {
-      const float drawableHeight =
-          GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
-      if (drawableHeight > 0.0F) {
-        const float scale = m_TargetHeightPx / drawableHeight;
-        m_Transform.scale = {scale, scale};
+    // Adjust scale to match target height (use m_DeathTargetHeightPx if set)
+    {
+      const float heightForDeath = m_DeathTargetHeightPx > 0.0F
+                                       ? m_DeathTargetHeightPx
+                                       : m_TargetHeightPx;
+      if (heightForDeath > 0.0F) {
+        const float drawableHeight =
+            GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
+        if (drawableHeight > 0.0F) {
+          const float scale = heightForDeath / drawableHeight;
+          m_Transform.scale = {scale, scale};
+        }
       }
     }
     break;

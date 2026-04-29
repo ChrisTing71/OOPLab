@@ -16,7 +16,6 @@
             "spawnIntervalSec": 0.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "leader",
             "zombieTypes": [
                 "leader"
             ],
@@ -31,10 +30,9 @@
             "spawnIntervalSec": 5.0,
             "waveIntervalSec": 20.0,
             "waitUntilClear": false,
-            "zombieType": "basic",
             "zombieTypes": [
                 "basic",
-                "leader",
+                "conehead",
                 "basic"
             ],
             "randomOrder": true
@@ -48,10 +46,9 @@
             "spawnIntervalSec": 5.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic",
             "zombieTypes": [
                 "basic",
-                "leader",
+                "basic",
                 "basic",
                 "basic"
             ],
