@@ -6,6 +6,8 @@
 #include "BasicZombie.hpp"
 #include "config.hpp"
 
+#include "ConeheadZombie.hpp"
+
 #include "LeaderZombie.hpp"
 
 #include "Util/Animation.hpp"
@@ -327,6 +329,30 @@ bool App::PrepareLeaderZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
+bool App::PrepareConeheadZombieFrames() {
+  const bool okStand = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/conehead_zombie/stand.gif",
+      "Resources/gameplay/enemies/zombies/conehead_zombie/stand_frames",
+      "conehead_stand_frame", m_ConeheadZombieStandFramePaths,
+      m_ConeheadZombieStandFrameIntervalMs);
+  const bool okWalk = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/conehead_zombie/walk.gif",
+      "Resources/gameplay/enemies/zombies/conehead_zombie/walk_frames",
+      "conehead_walk_frame", m_ConeheadZombieWalkFramePaths,
+      m_ConeheadZombieWalkFrameIntervalMs);
+  const bool okEat = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/conehead_zombie/eat.gif",
+      "Resources/gameplay/enemies/zombies/conehead_zombie/eat_frames",
+      "conehead_eat_frame", m_ConeheadZombieEatFramePaths,
+      m_ConeheadZombieEatFrameIntervalMs);
+  const bool okDead = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/conehead_zombie/dead.gif",
+      "Resources/gameplay/enemies/zombies/conehead_zombie/dead_frames",
+      "conehead_dead_frame", m_ConeheadZombieDeadFramePaths,
+      m_ConeheadZombieDeadFrameIntervalMs);
+  return okStand && okWalk && okEat && okDead;
+}
+
 bool App::PrepareLawnMowerFrames() {
   return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
                               "Resources/gameplay/defense/lawn_mower/frames",
@@ -407,6 +433,11 @@ App::GetZombiePreviewStandFramePaths(const std::string &zombieType) const {
       return m_LeaderZombieStandFramePaths;
     }
   }
+  if (zombieType == "conehead") {
+    if (!m_ConeheadZombieStandFramePaths.empty()) {
+      return m_ConeheadZombieStandFramePaths;
+    }
+  }
   return m_BasicZombieStandFramePaths;
 }
 
@@ -415,15 +446,21 @@ int App::GetZombiePreviewStandFrameIntervalMs(
   if (zombieType == "leader") {
     return m_LeaderZombieStandFrameIntervalMs;
   }
+  if (zombieType == "conehead") {
+    return m_ConeheadZombieStandFrameIntervalMs;
+  }
   return m_BasicZombieStandFrameIntervalMs;
 }
 
 float App::ComputeZombiePreviewTargetHeight(
     const std::string &zombieType) const {
   if (zombieType == "leader") {
-    return ComputeZombieTargetHeight() * 1.4F;
+    return ComputeZombieTargetHeight() * kLeaderZombieHeightScale;
   }
-  return ComputeZombieTargetHeight();
+  if (zombieType == "conehead") {
+    return ComputeZombieTargetHeight() * kConeheadZombieHeightScale;
+  }
+  return ComputeZombieTargetHeight() * kBasicZombieHeightScale;
 }
 
 void App::ClearBasicZombieStandPreview() {
@@ -440,7 +477,8 @@ void App::ClearBasicZombieStandPreview() {
 
 void App::PrepareBasicZombieStandPreview() {
   if (m_BasicZombieStandFramePaths.empty() &&
-      m_LeaderZombieStandFramePaths.empty()) {
+      m_LeaderZombieStandFramePaths.empty() &&
+      m_ConeheadZombieStandFramePaths.empty()) {
     return;
   }
 
@@ -540,20 +578,31 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
   const std::string normalizedZombieType =
       zombieType.empty() ? std::string("basic") : zombieType;
   const bool isLeaderZombie = normalizedZombieType == "leader";
+  const bool isConeheadZombie = normalizedZombieType == "conehead";
+
   const std::vector<std::string> &walkingFrames =
       isLeaderZombie && !m_LeaderZombieWalkFramePaths.empty()
           ? m_LeaderZombieWalkFramePaths
+      : isConeheadZombie && !m_ConeheadZombieWalkFramePaths.empty()
+          ? m_ConeheadZombieWalkFramePaths
           : m_BasicZombieWalkFramePaths;
   const std::vector<std::string> &attackingFrames =
       isLeaderZombie && !m_LeaderZombieEatFramePaths.empty()
           ? m_LeaderZombieEatFramePaths
+      : isConeheadZombie && !m_ConeheadZombieEatFramePaths.empty()
+          ? m_ConeheadZombieEatFramePaths
           : m_BasicZombieEatFramePaths;
   const std::vector<std::string> &dyingFrames =
       isLeaderZombie && !m_LeaderZombieDeadFramePaths.empty()
           ? m_LeaderZombieDeadFramePaths
+      : isConeheadZombie && !m_ConeheadZombieDeadFramePaths.empty()
+          ? m_ConeheadZombieDeadFramePaths
           : m_BasicZombieDeadFramePaths;
-  const float targetHeight =
-      ComputeZombieTargetHeight() * (isLeaderZombie ? 1.4F : 1.0F);
+
+  const float targetHeight = ComputeZombieTargetHeight() *
+                             (isLeaderZombie     ? kLeaderZombieHeightScale
+                              : isConeheadZombie ? kConeheadZombieHeightScale
+                                                 : kBasicZombieHeightScale);
 
   std::shared_ptr<Zombie> zombie;
   if (isLeaderZombie) {
@@ -561,6 +610,15 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
         targetHeight,
         static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+  } else if (isConeheadZombie) {
+    zombie = std::make_shared<ConeheadZombie>(
+        walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_ConeheadZombieWalkFrameIntervalMs), 17.0F,
+        600);
+    // Use 1.0x scale for death animation instead of 1.2x
+    zombie->SetDeathTargetHeightPx(ComputeZombieTargetHeight() *
+                                   kBasicZombieHeightScale);
   } else {
     zombie = std::make_shared<BasicZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
@@ -1898,6 +1956,7 @@ void App::Start() {
   PrepareCherryBombBlowFrames();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
+  PrepareConeheadZombieFrames();
   PrepareLawnMowerFrames();
 
   SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
@@ -2009,7 +2068,6 @@ void App::UpdateCamera(const float deltaTime) {
     }
     break;
   }
-
   m_Root.SetTranslation({m_CameraCurrentX, kCameraOffsetY});
 }
 
@@ -2169,6 +2227,7 @@ void App::InitializeLevel() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareLeaderZombieFrames();
+  PrepareConeheadZombieFrames();
   PrepareLawnMowerFrames();
   SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
                     99.0F, false);

@@ -27,6 +27,11 @@ public:
   State GetState() const { return m_State; }
   bool IsDestroyed() const { return m_Destroyed; }
 
+  // Set a different height to use when dying (e.g., for conehead)
+  void SetDeathTargetHeightPx(float heightPx) {
+    m_DeathTargetHeightPx = heightPx;
+  }
+
   static bool CheckAABBCollision(const Util::GameObject &a,
                                  const Util::GameObject &b);
 
@@ -43,6 +48,7 @@ private:
   bool m_IsCherryBombDeath = false;
 
   float m_TargetHeightPx = 0.0F;
+  float m_DeathTargetHeightPx = 0.0F; // 0.0 means use m_TargetHeightPx
 
   float m_MoveSpeedPxPerSec = 40.0F;
   int m_Health = 200;
