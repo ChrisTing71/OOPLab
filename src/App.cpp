@@ -7,6 +7,7 @@
 #include "config.hpp"
 
 #include "ConeheadZombie.hpp"
+#include "PolevaultingZombie.hpp"
 
 #include "LeaderZombie.hpp"
 
@@ -353,6 +354,45 @@ bool App::PrepareConeheadZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
+bool App::PreparePolevaultingZombieFrames() {
+  const bool okStand = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/stand.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/stand_frames",
+      "polevaulting_stand_frame", m_PolevaultingZombieStandFramePaths,
+      m_PolevaultingZombieStandFrameIntervalMs);
+  const bool okRun = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/run.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/run_frames",
+      "polevaulting_run_frame", m_PolevaultingZombieRunFramePaths,
+      m_PolevaultingZombieRunFrameIntervalMs);
+  const bool okJump1 = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump1.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump1_frames",
+      "polevaulting_jump1_frame", m_PolevaultingZombieJump1FramePaths,
+      m_PolevaultingZombieJump1FrameIntervalMs);
+  const bool okJump2 = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump2.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump2_frames",
+      "polevaulting_jump2_frame", m_PolevaultingZombieJump2FramePaths,
+      m_PolevaultingZombieJump2FrameIntervalMs);
+  const bool okWalk = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/walk.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/walk_frames",
+      "polevaulting_walk_frame", m_PolevaultingZombieWalkFramePaths,
+      m_PolevaultingZombieWalkFrameIntervalMs);
+  const bool okEat = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/eat.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/eat_frames",
+      "polevaulting_eat_frame", m_PolevaultingZombieEatFramePaths,
+      m_PolevaultingZombieEatFrameIntervalMs);
+  const bool okDead = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/dead.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/dead_frames",
+      "polevaulting_dead_frame", m_PolevaultingZombieDeadFramePaths,
+      m_PolevaultingZombieDeadFrameIntervalMs);
+  return okStand && okRun && okJump1 && okJump2 && okWalk && okEat && okDead;
+}
+
 bool App::PrepareLawnMowerFrames() {
   return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
                               "Resources/gameplay/defense/lawn_mower/frames",
@@ -438,6 +478,11 @@ App::GetZombiePreviewStandFramePaths(const std::string &zombieType) const {
       return m_ConeheadZombieStandFramePaths;
     }
   }
+  if (zombieType == "polevaulting") {
+    if (!m_PolevaultingZombieStandFramePaths.empty()) {
+      return m_PolevaultingZombieStandFramePaths;
+    }
+  }
   return m_BasicZombieStandFramePaths;
 }
 
@@ -449,6 +494,9 @@ int App::GetZombiePreviewStandFrameIntervalMs(
   if (zombieType == "conehead") {
     return m_ConeheadZombieStandFrameIntervalMs;
   }
+  if (zombieType == "polevaulting") {
+    return m_PolevaultingZombieStandFrameIntervalMs;
+  }
   return m_BasicZombieStandFrameIntervalMs;
 }
 
@@ -459,6 +507,9 @@ float App::ComputeZombiePreviewTargetHeight(
   }
   if (zombieType == "conehead") {
     return ComputeZombieTargetHeight() * kConeheadZombieHeightScale;
+  }
+  if (zombieType == "polevaulting") {
+    return ComputeZombieTargetHeight() * kPolevaultingZombieHeightScale;
   }
   return ComputeZombieTargetHeight() * kBasicZombieHeightScale;
 }
@@ -579,30 +630,38 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
       zombieType.empty() ? std::string("basic") : zombieType;
   const bool isLeaderZombie = normalizedZombieType == "leader";
   const bool isConeheadZombie = normalizedZombieType == "conehead";
+  const bool isPolevaultingZombie = normalizedZombieType == "polevaulting";
 
   const std::vector<std::string> &walkingFrames =
       isLeaderZombie && !m_LeaderZombieWalkFramePaths.empty()
           ? m_LeaderZombieWalkFramePaths
       : isConeheadZombie && !m_ConeheadZombieWalkFramePaths.empty()
           ? m_ConeheadZombieWalkFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieRunFramePaths.empty()
+          ? m_PolevaultingZombieRunFramePaths
           : m_BasicZombieWalkFramePaths;
   const std::vector<std::string> &attackingFrames =
       isLeaderZombie && !m_LeaderZombieEatFramePaths.empty()
           ? m_LeaderZombieEatFramePaths
       : isConeheadZombie && !m_ConeheadZombieEatFramePaths.empty()
           ? m_ConeheadZombieEatFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieEatFramePaths.empty()
+          ? m_PolevaultingZombieEatFramePaths
           : m_BasicZombieEatFramePaths;
   const std::vector<std::string> &dyingFrames =
       isLeaderZombie && !m_LeaderZombieDeadFramePaths.empty()
           ? m_LeaderZombieDeadFramePaths
       : isConeheadZombie && !m_ConeheadZombieDeadFramePaths.empty()
           ? m_ConeheadZombieDeadFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieDeadFramePaths.empty()
+          ? m_PolevaultingZombieDeadFramePaths
           : m_BasicZombieDeadFramePaths;
 
   const float targetHeight = ComputeZombieTargetHeight() *
-                             (isLeaderZombie     ? kLeaderZombieHeightScale
-                              : isConeheadZombie ? kConeheadZombieHeightScale
-                                                 : kBasicZombieHeightScale);
+                             (isLeaderZombie           ? kLeaderZombieHeightScale
+                              : isConeheadZombie        ? kConeheadZombieHeightScale
+                              : isPolevaultingZombie    ? kPolevaultingZombieHeightScale
+                                                          : kBasicZombieHeightScale);
 
   std::shared_ptr<Zombie> zombie;
   if (isLeaderZombie) {
@@ -619,6 +678,21 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
     // Use 1.0x scale for death animation instead of 1.2x
     zombie->SetDeathTargetHeightPx(ComputeZombieTargetHeight() *
                                    kBasicZombieHeightScale);
+  } else if (isPolevaultingZombie) {
+    zombie = std::make_shared<PolevaultingZombie>(
+        m_PolevaultingZombieStandFramePaths,
+        m_PolevaultingZombieRunFramePaths,
+        m_PolevaultingZombieWalkFramePaths,
+        attackingFrames,
+        m_PolevaultingZombieJump1FramePaths,
+        m_PolevaultingZombieJump2FramePaths,
+        dyingFrames,
+        m_CherryBombDeadFramePaths,
+        targetHeight,
+        static_cast<std::size_t>(m_PolevaultingZombieRunFrameIntervalMs),
+        17.0F,
+        17.0F,
+        370);
   } else {
     zombie = std::make_shared<BasicZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
@@ -1957,6 +2031,7 @@ void App::Start() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareConeheadZombieFrames();
+  PreparePolevaultingZombieFrames();
   PrepareLawnMowerFrames();
 
   SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",

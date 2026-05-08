@@ -8,6 +8,7 @@ set(SRC_FILES
     LeaderZombie.cpp
     MenuScene.cpp
     CherryBomb.cpp
+    PolevaultingZombie.cpp
     Nut.cpp
     Peashooter.cpp
     Sun.cpp
@@ -26,6 +27,7 @@ set(INCLUDE_FILES
     LeaderZombie.hpp
     MenuScene.hpp
     CherryBomb.hpp
+    PolevaultingZombie.hpp
     Nut.hpp
     Peashooter.hpp
     Plant.hpp

@@ -137,6 +137,7 @@ private:
   bool PrepareBasicZombieFrames();
   bool PrepareLeaderZombieFrames();
   bool PrepareConeheadZombieFrames();
+  bool PreparePolevaultingZombieFrames();
   bool PrepareLawnMowerFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
@@ -216,6 +217,7 @@ private:
   static constexpr float kBasicZombieHeightScale = 1.0F;
   static constexpr float kLeaderZombieHeightScale = 1.4F;
   static constexpr float kConeheadZombieHeightScale = 1.2F;
+  static constexpr float kPolevaultingZombieHeightScale = 1.2F;
 
 private:
   State m_CurrentState = State::START;
@@ -294,6 +296,20 @@ private:
   int m_ConeheadZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_ConeheadZombieDeadFramePaths;
   int m_ConeheadZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieStandFramePaths;
+  int m_PolevaultingZombieStandFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieRunFramePaths;
+  int m_PolevaultingZombieRunFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieJump1FramePaths;
+  int m_PolevaultingZombieJump1FrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieJump2FramePaths;
+  int m_PolevaultingZombieJump2FrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieWalkFramePaths;
+  int m_PolevaultingZombieWalkFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieEatFramePaths;
+  int m_PolevaultingZombieEatFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieDeadFramePaths;
+  int m_PolevaultingZombieDeadFrameIntervalMs = 120;
   std::vector<std::string> m_LawnMowerFramePaths;
   int m_LawnMowerFrameIntervalMs = 100;
   std::vector<std::string> m_CherryBombDeadFramePaths;

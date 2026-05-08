@@ -21,7 +21,9 @@ public:
          float targetHeightPx, std::size_t frameIntervalMs = 120,
          float moveSpeedPxPerSec = 40.0F, int health = 200);
 
-  void Update(float dt, const std::vector<std::shared_ptr<Plant>> &plants);
+  virtual ~Zombie() = default;
+  virtual void Update(float dt,
+                      const std::vector<std::shared_ptr<Plant>> &plants);
   void TakeDamage(int amount, bool isCherryBombDamage = false);
 
   State GetState() const { return m_State; }
@@ -47,6 +49,7 @@ private:
   bool m_Destroyed = false;
   bool m_IsCherryBombDeath = false;
 
+protected:
   float m_TargetHeightPx = 0.0F;
   float m_DeathTargetHeightPx = 0.0F; // 0.0 means use m_TargetHeightPx
 
