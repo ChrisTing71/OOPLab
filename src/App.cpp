@@ -56,6 +56,35 @@ bool IsPixelInsideObject(const std::shared_ptr<Util::GameObject> &object,
   return (pixelX >= center.x - halfWidth) && (pixelX <= center.x + halfWidth) &&
          (pixelY >= center.y - halfHeight) && (pixelY <= center.y + halfHeight);
 }
+
+bool CheckPolevaultingZombieProjectileCollision(
+    const Util::GameObject &projectile, const Util::GameObject &zombie) {
+  const glm::vec2 projSize =
+      projectile.GetScaledSize() * glm::vec2(0.80F, 0.75F);
+  const glm::vec2 zombieSize = zombie.GetScaledSize();
+
+  const glm::vec2 projCenter = projectile.m_Transform.translation;
+  const glm::vec2 zombieCenter = zombie.m_Transform.translation;
+
+  // Polevaulting zombie collision box: from 50% to 75% of object width
+  const float objectLeft = zombieCenter.x - zombieSize.x * 0.5F;
+  const float collisionLeft = objectLeft + zombieSize.x * 0.5F; // 50% position
+  const float collisionRight =
+      objectLeft + zombieSize.x * 0.75F; // 75% position
+  const float collisionHeight = zombieSize.y * 0.80F;
+  const float collisionTop = zombieCenter.y + collisionHeight * 0.5F;
+  const float collisionBottom = zombieCenter.y - collisionHeight * 0.5F;
+
+  const glm::vec2 projMin = projCenter - projSize * 0.5F;
+  const glm::vec2 projMax = projCenter + projSize * 0.5F;
+
+  const bool overlapX =
+      projMin.x <= collisionRight && projMax.x >= collisionLeft;
+  const bool overlapY =
+      projMin.y <= collisionTop && projMax.y >= collisionBottom;
+  return overlapX && overlapY;
+}
+
 } // namespace
 
 bool App::PrepareFramesFromGif(const std::string &gifPath,
@@ -657,42 +686,40 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
           ? m_PolevaultingZombieDeadFramePaths
           : m_BasicZombieDeadFramePaths;
 
-  const float targetHeight = ComputeZombieTargetHeight() *
-                             (isLeaderZombie           ? kLeaderZombieHeightScale
-                              : isConeheadZombie        ? kConeheadZombieHeightScale
-                              : isPolevaultingZombie    ? kPolevaultingZombieHeightScale
-                                                          : kBasicZombieHeightScale);
+  const float targetHeight =
+      ComputeZombieTargetHeight() *
+      (isLeaderZombie         ? kLeaderZombieHeightScale
+       : isConeheadZombie     ? kConeheadZombieHeightScale
+       : isPolevaultingZombie ? kPolevaultingZombieHeightScale
+                              : kBasicZombieHeightScale);
 
   std::shared_ptr<Zombie> zombie;
+  const float cherryBombDeathHeight =
+      ComputeZombieTargetHeight() * kBasicZombieHeightScale;
+
   if (isLeaderZombie) {
     zombie = std::make_shared<LeaderZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
         targetHeight,
         static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
   } else if (isConeheadZombie) {
     zombie = std::make_shared<ConeheadZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
         targetHeight,
         static_cast<std::size_t>(m_ConeheadZombieWalkFrameIntervalMs), 17.0F,
         600);
-    // Use 1.0x scale for death animation instead of 1.2x
-    zombie->SetDeathTargetHeightPx(ComputeZombieTargetHeight() *
-                                   kBasicZombieHeightScale);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
   } else if (isPolevaultingZombie) {
     zombie = std::make_shared<PolevaultingZombie>(
-        m_PolevaultingZombieStandFramePaths,
-        m_PolevaultingZombieRunFramePaths,
-        m_PolevaultingZombieWalkFramePaths,
-        attackingFrames,
+        m_PolevaultingZombieStandFramePaths, m_PolevaultingZombieRunFramePaths,
+        m_PolevaultingZombieWalkFramePaths, attackingFrames,
         m_PolevaultingZombieJump1FramePaths,
-        m_PolevaultingZombieJump2FramePaths,
-        dyingFrames,
-        m_CherryBombDeadFramePaths,
-        targetHeight,
-        static_cast<std::size_t>(m_PolevaultingZombieRunFrameIntervalMs),
-        17.0F,
-        17.0F,
-        370);
+        m_PolevaultingZombieJump2FramePaths, dyingFrames,
+        m_CherryBombDeadFramePaths, targetHeight,
+        static_cast<std::size_t>(m_PolevaultingZombieRunFrameIntervalMs), 17.0F,
+        17.0F, 370);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
   } else {
     zombie = std::make_shared<BasicZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
@@ -700,6 +727,14 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
         static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
   }
   zombie->m_Transform.translation = spawnPos;
+
+  // For polevaulting zombie, adjust y position to align bottom to grid
+  // due to the 1.6x scaling increase
+  if (isPolevaultingZombie) {
+    const float heightDifference =
+        ComputeZombieTargetHeight() * (kPolevaultingZombieHeightScale - 1.2F);
+    zombie->m_Transform.translation.y += heightDifference * 0.5F;
+  }
 
   m_Root.AddChild(zombie);
   m_ActiveZombies.push_back({zombie, row});
@@ -1699,12 +1734,23 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
           continue;
         }
 
-        if (CheckCustomAABBCollision(
-                *pea.object, *zombie.object,
-                glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
-                glm::vec2(0.48F, 0.80F), // zombie: focus torso region
-                glm::vec2(0.0F, 0.0F),
-                glm::vec2(-zombie.object->GetScaledSize().x * 0.10F, 0.0F))) {
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
+
+        bool isHit = false;
+        if (isPolevaultingZombie) {
+          isHit = CheckPolevaultingZombieProjectileCollision(*pea.object,
+                                                             *zombie.object);
+        } else {
+          isHit = CheckCustomAABBCollision(
+              *pea.object, *zombie.object,
+              glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
+              glm::vec2(0.48F, 0.80F), // zombie: focus torso region
+              glm::vec2(0.0F, 0.0F),
+              glm::vec2(-zombie.object->GetScaledSize().x * 0.10F, 0.0F));
+        }
+
+        if (isHit) {
           hitZombie = &zombie;
           break;
         }
@@ -1714,8 +1760,22 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
         hitZombie->object->TakeDamage(20);
 
         const glm::vec2 zombieSize = hitZombie->object->GetScaledSize();
-        pea.object->m_Transform.translation.x =
-            hitZombie->object->m_Transform.translation.x - zombieSize.x * 0.20F;
+
+        // Calculate hit position based on zombie type
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
+            nullptr;
+        if (isPolevaultingZombie) {
+          // For polevaulting zombie, place explosion at collision box center
+          // (50%-75%)
+          pea.object->m_Transform.translation.x =
+              hitZombie->object->m_Transform.translation.x +
+              zombieSize.x * 0.125F;
+        } else {
+          pea.object->m_Transform.translation.x =
+              hitZombie->object->m_Transform.translation.x -
+              zombieSize.x * 0.20F;
+        }
 
         auto hitAnim = std::make_shared<Util::Animation>(
             m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);

@@ -34,6 +34,10 @@ public:
     m_DeathTargetHeightPx = heightPx;
   }
 
+  void SetCherryBombDeathTargetHeightPx(float heightPx) {
+    m_CherryBombDeathTargetHeightPx = heightPx;
+  }
+
   static bool CheckAABBCollision(const Util::GameObject &a,
                                  const Util::GameObject &b);
 
@@ -52,6 +56,8 @@ private:
 protected:
   float m_TargetHeightPx = 0.0F;
   float m_DeathTargetHeightPx = 0.0F; // 0.0 means use m_TargetHeightPx
+  float m_CherryBombDeathTargetHeightPx =
+      0.0F; // used only for cherry-bomb deaths
 
   float m_MoveSpeedPxPerSec = 40.0F;
   int m_Health = 200;

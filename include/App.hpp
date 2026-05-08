@@ -215,9 +215,9 @@ private:
 
   // Zombie animation size scale factors
   static constexpr float kBasicZombieHeightScale = 1.0F;
-  static constexpr float kLeaderZombieHeightScale = 1.4F;
+  static constexpr float kLeaderZombieHeightScale = 1.3F;
   static constexpr float kConeheadZombieHeightScale = 1.2F;
-  static constexpr float kPolevaultingZombieHeightScale = 1.2F;
+  static constexpr float kPolevaultingZombieHeightScale = 1.7F;
 
 private:
   State m_CurrentState = State::START;

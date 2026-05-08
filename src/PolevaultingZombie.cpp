@@ -6,6 +6,59 @@
 #include "Util/Animation.hpp"
 
 namespace {
+// Custom AABB collision check for the polevaulting zombie's attack/eat range.
+bool CheckAABBCollisionCustom(const Util::GameObject &a,
+                              const Util::GameObject &b) {
+  const glm::vec2 aSize = a.GetScaledSize();
+  const glm::vec2 bSize = b.GetScaledSize();
+
+  const glm::vec2 aCenter = a.m_Transform.translation;
+  const glm::vec2 bCenter = b.m_Transform.translation;
+
+  const float objectLeft = aCenter.x - aSize.x * 0.5F;
+  const float collisionLeft = objectLeft + aSize.x * 0.5F;   // 50% position
+  const float collisionRight = objectLeft + aSize.x * 0.75F; // 75% position
+  const float collisionHeight = aSize.y * 0.80F;
+  const float collisionTop = aCenter.y + collisionHeight * 0.5F;
+  const float collisionBottom = aCenter.y - collisionHeight * 0.5F;
+
+  const glm::vec2 aMin = {collisionLeft, collisionBottom};
+  const glm::vec2 aMax = {collisionRight, collisionTop};
+  const glm::vec2 bMin = bCenter - bSize * 0.5F;
+  const glm::vec2 bMax = bCenter + bSize * 0.5F;
+
+  const bool overlapX = aMin.x <= bMax.x && aMax.x >= bMin.x;
+  const bool overlapY = aMin.y <= bMax.y && aMax.y >= bMin.y;
+  return overlapX && overlapY;
+}
+
+// Narrow collision check centered at 40% x for jump trigger
+bool CheckJumpCollisionAt40(const Util::GameObject &a,
+                            const Util::GameObject &b) {
+  const glm::vec2 aSize = a.GetScaledSize();
+  const glm::vec2 bSize = b.GetScaledSize();
+
+  const glm::vec2 aCenter = a.m_Transform.translation;
+  const glm::vec2 bCenter = b.m_Transform.translation;
+
+  const float objectLeft = aCenter.x - aSize.x * 0.5F;
+  const float centerPos = objectLeft + aSize.x * 0.40F; // 40% position
+  const float stripHalfWidth =
+      aSize.x * 0.025F; // narrow strip (2.5% either side)
+
+  const float collisionTop = aCenter.y + aSize.y * 0.5F;
+  const float collisionBottom = aCenter.y - aSize.y * 0.5F;
+
+  const glm::vec2 aMin = {centerPos - stripHalfWidth, collisionBottom};
+  const glm::vec2 aMax = {centerPos + stripHalfWidth, collisionTop};
+  const glm::vec2 bMin = bCenter - bSize * 0.5F;
+  const glm::vec2 bMax = bCenter + bSize * 0.5F;
+
+  const bool overlapX = aMin.x <= bMax.x && aMax.x >= bMin.x;
+  const bool overlapY = aMin.y <= bMax.y && aMax.y >= bMin.y;
+  return overlapX && overlapY;
+}
+
 std::shared_ptr<Plant>
 FindCollidingPlantInternal(const Util::GameObject &zombie,
                            const std::vector<std::shared_ptr<Plant>> &plants) {
@@ -22,7 +75,37 @@ FindCollidingPlantInternal(const Util::GameObject &zombie,
       continue;
     }
 
-    if (!Zombie::CheckAABBCollision(zombie, *plant)) {
+    if (!CheckAABBCollisionCustom(zombie, *plant)) {
+      continue;
+    }
+
+    const float distance = zombieX - plant->m_Transform.translation.x;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestTarget = plant;
+    }
+  }
+
+  return bestTarget;
+}
+
+std::shared_ptr<Plant> FindJumpCollidingPlantInternal(
+    const Util::GameObject &zombie,
+    const std::vector<std::shared_ptr<Plant>> &plants) {
+  std::shared_ptr<Plant> bestTarget = nullptr;
+  float bestDistance = std::numeric_limits<float>::max();
+  const float zombieX = zombie.m_Transform.translation.x;
+
+  for (const auto &plant : plants) {
+    if (plant == nullptr || plant->IsDead()) {
+      continue;
+    }
+
+    if (plant->m_Transform.translation.x > zombieX) {
+      continue;
+    }
+
+    if (!CheckJumpCollisionAt40(zombie, *plant)) {
       continue;
     }
 
@@ -93,8 +176,9 @@ void PolevaultingZombie::Update(
   }
 
   case PolevaultState::Running: {
-    m_Transform.translation.x -= m_RunSpeedPxPerSec * dt;
-    const auto target = FindCollidingPlant(plants);
+    m_Transform.translation.x -= m_RunSpeedPxPerSec * 2.0F * dt;
+    // Use 40% jump trigger collision when deciding to start jump
+    const auto target = FindJumpCollidingPlantInternal(*this, plants);
     if (target != nullptr) {
       m_CurrentTarget = target;
       EnterJump1();
@@ -130,7 +214,8 @@ void PolevaultingZombie::Update(
   }
 
   case PolevaultState::Attacking: {
-    if (m_CurrentTarget == nullptr || m_CurrentTarget->IsDead()) {
+    if (m_CurrentTarget == nullptr || m_CurrentTarget->IsDead() ||
+        !CheckAABBCollisionCustom(*this, *m_CurrentTarget)) {
       m_CurrentTarget = FindCollidingPlant(plants);
       if (m_CurrentTarget == nullptr) {
         EnterWalking();
@@ -189,6 +274,13 @@ void PolevaultingZombie::EnterJump1() {
 
 void PolevaultingZombie::EnterJump2() {
   m_State = PolevaultState::Jump2;
+
+  // Move horizontally by 0.5x the animation width when transitioning
+  if (m_Jump2Animation != nullptr) {
+    const float animWidth = m_Jump2Animation->GetSize().x;
+    m_Transform.translation.x -= animWidth * 0.5F;
+  }
+
   SetAnimation(m_Jump2Animation);
 }
 

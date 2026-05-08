@@ -1,4 +1,5 @@
 #include "Zombie.hpp"
+#include "PolevaultingZombie.hpp"
 
 #include <limits>
 
@@ -208,17 +209,36 @@ void Zombie::EnterState(const State newState) {
       m_DyingAnimation->Play();
       SetDrawable(m_DyingAnimation);
     }
-    // Adjust scale to match target height (use m_DeathTargetHeightPx if set)
+    // Adjust scale to match target height
     {
-      const float heightForDeath = m_DeathTargetHeightPx > 0.0F
-                                       ? m_DeathTargetHeightPx
-                                       : m_TargetHeightPx;
+      float heightForDeath = m_TargetHeightPx;
+      if (m_IsCherryBombDeath) {
+        if (m_CherryBombDeathTargetHeightPx > 0.0F) {
+          heightForDeath = m_CherryBombDeathTargetHeightPx;
+        } else if (m_DeathTargetHeightPx > 0.0F) {
+          heightForDeath = m_DeathTargetHeightPx;
+        }
+      } else {
+        if (m_DeathTargetHeightPx > 0.0F) {
+          heightForDeath = m_DeathTargetHeightPx;
+        }
+      }
+
       if (heightForDeath > 0.0F) {
         const float drawableHeight =
             GetScaledSize().y / glm::max(m_Transform.scale.y, 0.0001F);
         if (drawableHeight > 0.0F) {
           const float scale = heightForDeath / drawableHeight;
           m_Transform.scale = {scale, scale};
+        }
+      }
+
+      // If polevaulting zombie died from cherry bomb, shift death animation
+      // down
+      if (m_IsCherryBombDeath) {
+        if (dynamic_cast<PolevaultingZombie *>(this) != nullptr) {
+          // shift down by 30% of object's height
+          m_Transform.translation.y -= GetScaledSize().y * 0.30F;
         }
       }
     }
