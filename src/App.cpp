@@ -1216,10 +1216,16 @@ glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
 }
 
 void App::UpdateSuns(const float deltaTime) {
-  m_SunSpawnCountdown -= deltaTime;
-  if (m_SunSpawnCountdown <= 0.0F) {
-    SpawnFallingSun();
-    m_SunSpawnCountdown = 8.0F;
+  // Only spawn automatic falling sun during daytime
+  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  const bool isNightScene = (levelConfig.sceneType == SceneType::NIGHT);
+
+  if (!isNightScene) {
+    m_SunSpawnCountdown -= deltaTime;
+    if (m_SunSpawnCountdown <= 0.0F) {
+      SpawnFallingSun();
+      m_SunSpawnCountdown = 8.0F;
+    }
   }
 
   for (const auto &sunflower : m_Sunflowers) {
@@ -2249,8 +2255,14 @@ void App::InitializeLevel() {
 
   ResetLevelRuntimeState();
 
-  m_Map->SetDrawable(
-      std::make_shared<Util::Image>("Resources/scenes/maps/main_map.png"));
+  // Load appropriate map based on scene type
+  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  std::string mapPath = "Resources/scenes/maps/main_map.png";
+  if (levelConfig.sceneType == SceneType::NIGHT) {
+    mapPath = "Resources/scenes/maps/map_night.png";
+  }
+
+  m_Map->SetDrawable(std::make_shared<Util::Image>(mapPath));
   m_Map->SetZIndex(0.0F);
   m_Map->m_Transform.translation = {0.0F, 0.0F};
   m_Map->m_Transform.scale = {1.0F, 1.0F};
@@ -2310,8 +2322,7 @@ void App::InitializeLevel() {
   m_UIRoot.AddChild(m_HugeWaveBanner);
   m_UIRoot.AddChild(m_GameOverBanner);
 
-  // Load level configuration
-  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  // Set initial sunlight based on level configuration
   m_Sunlight = levelConfig.initialSunAmount;
 
   // Build spawn plan from current level's wave configuration
