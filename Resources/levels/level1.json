@@ -3,14 +3,14 @@
     "name": "Level 1 - Beginning",
     "description": "Learn the basics. Defend against the first wave of zombies.",
     "sceneType": "day",
-    "initialSunAmount": 10000,
+    "initialSunAmount": 100,
     "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 0.0,
+            "startDelaySec": 40.0,
             "repeat": 1,
             "zombiesPerWave": 1,
             "spawnIntervalSec": 0.0,
