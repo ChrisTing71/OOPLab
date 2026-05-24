@@ -67,13 +67,13 @@ public:
 
   struct ActivePea {
     std::shared_ptr<Util::GameObject> object;
+    int row = -1;
     bool hitting = false;
     std::shared_ptr<Util::Animation> hitAnimation = nullptr;
   };
 
   struct ActiveZombie {
     std::shared_ptr<Zombie> object;
-    int row = 0;
   };
 
   struct LawnMower {
@@ -192,6 +192,8 @@ private:
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
+  void DebugDrawMouseOverlay() const;
+  void DebugDrawCollisionBoxes() const;
   void SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
                          const std::string &imagePath, float zIndex,
                          bool fullScreen) const;
@@ -318,6 +320,7 @@ private:
   std::vector<glm::vec2> m_BasicZombieStandPercents;
   std::vector<ActiveZombie> m_ActiveZombies;
   std::array<LawnMower, kGridRows> m_LawnMowers{};
+  float m_GameOverBoundaryX = kGridMinXPercent;
   bool m_BasicZombieStandReady = false;
   bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;

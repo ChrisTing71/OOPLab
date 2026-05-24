@@ -28,6 +28,8 @@ public:
 
   State GetState() const { return m_State; }
   bool IsDestroyed() const { return m_Destroyed; }
+  int GetGridRow() const { return m_GridRow; }
+  void SetGridRow(const int row) { m_GridRow = row; }
 
   // Set a different height to use when dying (e.g., for conehead)
   void SetDeathTargetHeightPx(float heightPx) {
@@ -37,9 +39,6 @@ public:
   void SetCherryBombDeathTargetHeightPx(float heightPx) {
     m_CherryBombDeathTargetHeightPx = heightPx;
   }
-
-  static bool CheckAABBCollision(const Util::GameObject &a,
-                                 const Util::GameObject &b);
 
 private:
   std::shared_ptr<Plant>
@@ -52,6 +51,7 @@ private:
   State m_State = State::Walking;
   bool m_Destroyed = false;
   bool m_IsCherryBombDeath = false;
+  int m_GridRow = -1;
 
 protected:
   float m_TargetHeightPx = 0.0F;

@@ -1,19 +1,9 @@
 #include "Zombie.hpp"
-#include "PolevaultingZombie.hpp"
 
 #include <limits>
 
-namespace {
-glm::vec2 MinCorner(const Util::GameObject &obj) {
-  const glm::vec2 size = obj.GetScaledSize();
-  return obj.m_Transform.translation - size * 0.5F;
-}
-
-glm::vec2 MaxCorner(const Util::GameObject &obj) {
-  const glm::vec2 size = obj.GetScaledSize();
-  return obj.m_Transform.translation + size * 0.5F;
-}
-} // namespace
+#include "CollisionSystem.hpp"
+#include "PolevaultingZombie.hpp"
 
 Zombie::Zombie(const std::vector<std::string> &walkingFrames,
                const std::vector<std::string> &attackingFrames,
@@ -136,18 +126,6 @@ void Zombie::TakeDamage(const int amount, const bool isCherryBombDamage) {
   }
 }
 
-bool Zombie::CheckAABBCollision(const Util::GameObject &a,
-                                const Util::GameObject &b) {
-  const glm::vec2 aMin = MinCorner(a);
-  const glm::vec2 aMax = MaxCorner(a);
-  const glm::vec2 bMin = MinCorner(b);
-  const glm::vec2 bMax = MaxCorner(b);
-
-  const bool overlapX = aMin.x <= bMax.x && aMax.x >= bMin.x;
-  const bool overlapY = aMin.y <= bMax.y && aMax.y >= bMin.y;
-  return overlapX && overlapY;
-}
-
 std::shared_ptr<Plant> Zombie::FindCollidingPlant(
     const std::vector<std::shared_ptr<Plant>> &plants) const {
   std::shared_ptr<Plant> bestTarget = nullptr;
@@ -159,17 +137,15 @@ std::shared_ptr<Plant> Zombie::FindCollidingPlant(
       continue;
     }
 
-    // Only consider plants that are in front of the zombie's movement
-    // direction. Zombies move left, so ignore plants that are behind.
-    if (plant->m_Transform.translation.x > zombieX) {
+    const bool collision = CollisionSystem::CheckAABBCollisionSameRow(
+        *this, *plant, CollisionSystem::CollisionBoxType::BasicZombie,
+        CollisionSystem::CollisionBoxType::Plant);
+
+    if (!collision) {
       continue;
     }
 
-    if (!CheckAABBCollision(*this, *plant)) {
-      continue;
-    }
-
-    const float distance = zombieX - plant->m_Transform.translation.x;
+    const float distance = glm::abs(zombieX - plant->m_Transform.translation.x);
     if (distance < bestDistance) {
       bestDistance = distance;
       bestTarget = plant;

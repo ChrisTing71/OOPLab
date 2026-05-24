@@ -22,16 +22,16 @@ public:
                      const std::vector<std::string> &jump2Frames,
                      const std::vector<std::string> &dyingFrames,
                      const std::vector<std::string> &cherryBombDyingFrames,
-                     float targetHeightPx,
-                     std::size_t frameIntervalMs = 120,
+                     float targetHeightPx, std::size_t frameIntervalMs = 120,
                      float runSpeedPxPerSec = 17.0F,
-                     float walkSpeedPxPerSec = 17.0F,
-                     int health = 370);
+                     float walkSpeedPxPerSec = 17.0F, int health = 370);
 
   ~PolevaultingZombie() override = default;
 
   void Update(float dt,
               const std::vector<std::shared_ptr<Plant>> &plants) override;
+
+  void SetLandingYPosition(float y) { m_LandingYPosition = y; }
 
 private:
   std::shared_ptr<Util::Animation> m_StandAnimation;
@@ -45,6 +45,7 @@ private:
   float m_StandElapsed = 0.0F;
   float m_RunSpeedPxPerSec = 17.0F;
   float m_WalkSpeedPxPerSec = 17.0F;
+  float m_LandingYPosition = 0.0F;
 
   std::shared_ptr<Plant> m_CurrentTarget = nullptr;
   float m_AttackElapsed = 0.0F;
