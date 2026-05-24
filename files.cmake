@@ -1,13 +1,16 @@
 set(SRC_FILES
     App.cpp
+    AppDebug.cpp
     BasicZombie.cpp
     CardSlot.cpp
     ConeheadZombie.cpp
+    CollisionSystem.cpp
     LevelConfig.cpp
     LevelManager.cpp
     LeaderZombie.cpp
     MenuScene.cpp
     CherryBomb.cpp
+    PolevaultingZombie.cpp
     Nut.cpp
     Peashooter.cpp
     Sun.cpp
@@ -18,14 +21,17 @@ set(SRC_FILES
 
 set(INCLUDE_FILES
     App.hpp
+    AppDebugConfig.hpp
     BasicZombie.hpp
     CardSlot.hpp
+    CollisionSystem.hpp
     ConeheadZombie.hpp
     LevelConfig.hpp
     LevelManager.hpp
     LeaderZombie.hpp
     MenuScene.hpp
     CherryBomb.hpp
+    PolevaultingZombie.hpp
     Nut.hpp
     Peashooter.hpp
     Plant.hpp
@@ -33,6 +39,7 @@ set(INCLUDE_FILES
     Sunflower.hpp
     WaveConfig.hpp
     Zombie.hpp
+    ZombieCollisionBoxHelper.hpp
 )
 
 set(TEST_FILES

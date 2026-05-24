@@ -3,10 +3,14 @@
 #include <filesystem>
 #include <random>
 
+#include "AppDebugConfig.hpp"
 #include "BasicZombie.hpp"
+#include "CollisionSystem.hpp"
+#include "ZombieCollisionBoxHelper.hpp"
 #include "config.hpp"
 
 #include "ConeheadZombie.hpp"
+#include "PolevaultingZombie.hpp"
 
 #include "LeaderZombie.hpp"
 
@@ -21,40 +25,6 @@ float Lerp(const float from, const float to, const float t) {
   return from + (to - from) * glm::clamp(t, 0.0F, 1.0F);
 }
 
-bool CheckCustomAABBCollision(const Util::GameObject &a,
-                              const Util::GameObject &b, const glm::vec2 aScale,
-                              const glm::vec2 bScale, const glm::vec2 aOffset,
-                              const glm::vec2 bOffset) {
-  const glm::vec2 aSize = a.GetScaledSize() * aScale;
-  const glm::vec2 bSize = b.GetScaledSize() * bScale;
-  const glm::vec2 aCenter = a.m_Transform.translation + aOffset;
-  const glm::vec2 bCenter = b.m_Transform.translation + bOffset;
-
-  const glm::vec2 aMin = aCenter - aSize * 0.5F;
-  const glm::vec2 aMax = aCenter + aSize * 0.5F;
-  const glm::vec2 bMin = bCenter - bSize * 0.5F;
-  const glm::vec2 bMax = bCenter + bSize * 0.5F;
-
-  const bool overlapX = aMin.x <= bMax.x && aMax.x >= bMin.x;
-  const bool overlapY = aMin.y <= bMax.y && aMax.y >= bMin.y;
-  return overlapX && overlapY;
-}
-
-bool IsPixelInsideObject(const std::shared_ptr<Util::GameObject> &object,
-                         const float pixelX, const float pixelY) {
-  const glm::vec2 size = object->GetScaledSize();
-  const glm::vec2 center = {
-      object->m_Transform.translation.x +
-          static_cast<float>(WINDOW_WIDTH) * 0.5F,
-      static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-          object->m_Transform.translation.y,
-  };
-
-  const float halfWidth = size.x * 0.5F;
-  const float halfHeight = size.y * 0.5F;
-  return (pixelX >= center.x - halfWidth) && (pixelX <= center.x + halfWidth) &&
-         (pixelY >= center.y - halfHeight) && (pixelY <= center.y + halfHeight);
-}
 } // namespace
 
 bool App::PrepareFramesFromGif(const std::string &gifPath,
@@ -353,6 +323,45 @@ bool App::PrepareConeheadZombieFrames() {
   return okStand && okWalk && okEat && okDead;
 }
 
+bool App::PreparePolevaultingZombieFrames() {
+  const bool okStand = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/stand.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/stand_frames",
+      "polevaulting_stand_frame", m_PolevaultingZombieStandFramePaths,
+      m_PolevaultingZombieStandFrameIntervalMs);
+  const bool okRun = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/run.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/run_frames",
+      "polevaulting_run_frame", m_PolevaultingZombieRunFramePaths,
+      m_PolevaultingZombieRunFrameIntervalMs);
+  const bool okJump1 = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump1.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump1_frames",
+      "polevaulting_jump1_frame", m_PolevaultingZombieJump1FramePaths,
+      m_PolevaultingZombieJump1FrameIntervalMs);
+  const bool okJump2 = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump2.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/jump2_frames",
+      "polevaulting_jump2_frame", m_PolevaultingZombieJump2FramePaths,
+      m_PolevaultingZombieJump2FrameIntervalMs);
+  const bool okWalk = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/walk.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/walk_frames",
+      "polevaulting_walk_frame", m_PolevaultingZombieWalkFramePaths,
+      m_PolevaultingZombieWalkFrameIntervalMs);
+  const bool okEat = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/eat.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/eat_frames",
+      "polevaulting_eat_frame", m_PolevaultingZombieEatFramePaths,
+      m_PolevaultingZombieEatFrameIntervalMs);
+  const bool okDead = PrepareFramesFromGif(
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/dead.gif",
+      "Resources/gameplay/enemies/zombies/polevaulting_zombie/dead_frames",
+      "polevaulting_dead_frame", m_PolevaultingZombieDeadFramePaths,
+      m_PolevaultingZombieDeadFrameIntervalMs);
+  return okStand && okRun && okJump1 && okJump2 && okWalk && okEat && okDead;
+}
+
 bool App::PrepareLawnMowerFrames() {
   return PrepareFramesFromGif("Resources/gameplay/defense/lawn_mower/car.gif",
                               "Resources/gameplay/defense/lawn_mower/frames",
@@ -438,6 +447,11 @@ App::GetZombiePreviewStandFramePaths(const std::string &zombieType) const {
       return m_ConeheadZombieStandFramePaths;
     }
   }
+  if (zombieType == "polevaulting") {
+    if (!m_PolevaultingZombieStandFramePaths.empty()) {
+      return m_PolevaultingZombieStandFramePaths;
+    }
+  }
   return m_BasicZombieStandFramePaths;
 }
 
@@ -449,6 +463,9 @@ int App::GetZombiePreviewStandFrameIntervalMs(
   if (zombieType == "conehead") {
     return m_ConeheadZombieStandFrameIntervalMs;
   }
+  if (zombieType == "polevaulting") {
+    return m_PolevaultingZombieStandFrameIntervalMs;
+  }
   return m_BasicZombieStandFrameIntervalMs;
 }
 
@@ -459,6 +476,9 @@ float App::ComputeZombiePreviewTargetHeight(
   }
   if (zombieType == "conehead") {
     return ComputeZombieTargetHeight() * kConeheadZombieHeightScale;
+  }
+  if (zombieType == "polevaulting") {
+    return ComputeZombieTargetHeight() * kPolevaultingZombieHeightScale;
   }
   return ComputeZombieTargetHeight() * kBasicZombieHeightScale;
 }
@@ -579,46 +599,67 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
       zombieType.empty() ? std::string("basic") : zombieType;
   const bool isLeaderZombie = normalizedZombieType == "leader";
   const bool isConeheadZombie = normalizedZombieType == "conehead";
+  const bool isPolevaultingZombie = normalizedZombieType == "polevaulting";
 
   const std::vector<std::string> &walkingFrames =
       isLeaderZombie && !m_LeaderZombieWalkFramePaths.empty()
           ? m_LeaderZombieWalkFramePaths
       : isConeheadZombie && !m_ConeheadZombieWalkFramePaths.empty()
           ? m_ConeheadZombieWalkFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieRunFramePaths.empty()
+          ? m_PolevaultingZombieRunFramePaths
           : m_BasicZombieWalkFramePaths;
   const std::vector<std::string> &attackingFrames =
       isLeaderZombie && !m_LeaderZombieEatFramePaths.empty()
           ? m_LeaderZombieEatFramePaths
       : isConeheadZombie && !m_ConeheadZombieEatFramePaths.empty()
           ? m_ConeheadZombieEatFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieEatFramePaths.empty()
+          ? m_PolevaultingZombieEatFramePaths
           : m_BasicZombieEatFramePaths;
   const std::vector<std::string> &dyingFrames =
       isLeaderZombie && !m_LeaderZombieDeadFramePaths.empty()
           ? m_LeaderZombieDeadFramePaths
       : isConeheadZombie && !m_ConeheadZombieDeadFramePaths.empty()
           ? m_ConeheadZombieDeadFramePaths
+      : isPolevaultingZombie && !m_PolevaultingZombieDeadFramePaths.empty()
+          ? m_PolevaultingZombieDeadFramePaths
           : m_BasicZombieDeadFramePaths;
 
-  const float targetHeight = ComputeZombieTargetHeight() *
-                             (isLeaderZombie     ? kLeaderZombieHeightScale
-                              : isConeheadZombie ? kConeheadZombieHeightScale
-                                                 : kBasicZombieHeightScale);
+  const float targetHeight =
+      ComputeZombieTargetHeight() *
+      (isLeaderZombie         ? kLeaderZombieHeightScale
+       : isConeheadZombie     ? kConeheadZombieHeightScale
+       : isPolevaultingZombie ? kPolevaultingZombieHeightScale
+                              : kBasicZombieHeightScale);
 
   std::shared_ptr<Zombie> zombie;
+  const float cherryBombDeathHeight =
+      ComputeZombieTargetHeight() * kBasicZombieHeightScale;
+
   if (isLeaderZombie) {
     zombie = std::make_shared<LeaderZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
         targetHeight,
         static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
   } else if (isConeheadZombie) {
     zombie = std::make_shared<ConeheadZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
         targetHeight,
         static_cast<std::size_t>(m_ConeheadZombieWalkFrameIntervalMs), 17.0F,
         600);
-    // Use 1.0x scale for death animation instead of 1.2x
-    zombie->SetDeathTargetHeightPx(ComputeZombieTargetHeight() *
-                                   kBasicZombieHeightScale);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
+  } else if (isPolevaultingZombie) {
+    zombie = std::make_shared<PolevaultingZombie>(
+        m_PolevaultingZombieStandFramePaths, m_PolevaultingZombieRunFramePaths,
+        m_PolevaultingZombieWalkFramePaths, attackingFrames,
+        m_PolevaultingZombieJump1FramePaths,
+        m_PolevaultingZombieJump2FramePaths, dyingFrames,
+        m_CherryBombDeadFramePaths, targetHeight,
+        static_cast<std::size_t>(m_PolevaultingZombieRunFrameIntervalMs), 17.0F,
+        17.0F, 370);
+    zombie->SetCherryBombDeathTargetHeightPx(cherryBombDeathHeight);
   } else {
     zombie = std::make_shared<BasicZombie>(
         walkingFrames, attackingFrames, dyingFrames, m_CherryBombDeadFramePaths,
@@ -626,9 +667,23 @@ void App::SpawnZombieAtRow(const int row, const std::string &zombieType) {
         static_cast<std::size_t>(m_BasicZombieWalkFrameIntervalMs), 17.0F, 200);
   }
   zombie->m_Transform.translation = spawnPos;
+  zombie->SetGridRow(row);
+
+  // For polevaulting zombie, adjust y position to align bottom to grid
+  // due to the 1.6x scaling increase
+  if (isPolevaultingZombie) {
+    const float heightDifference =
+        ComputeZombieTargetHeight() * (kPolevaultingZombieHeightScale - 1.2F);
+    zombie->m_Transform.translation.y += heightDifference * 0.5F;
+    // Store the landing Y position for later restoration after jump
+    auto *poleVault = dynamic_cast<PolevaultingZombie *>(zombie.get());
+    if (poleVault != nullptr) {
+      poleVault->SetLandingYPosition(zombie->m_Transform.translation.y);
+    }
+  }
 
   m_Root.AddChild(zombie);
-  m_ActiveZombies.push_back({zombie, row});
+  m_ActiveZombies.push_back({zombie});
 }
 
 int App::PickSpawnRowForWaveSpawn() {
@@ -841,7 +896,7 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
   }
 
   for (const auto &card : m_PlantCards) {
-    if (!IsPixelInsideObject(card.normal, pixelX, pixelY)) {
+    if (!CollisionSystem::IsPixelInsideObject(card.normal, pixelX, pixelY)) {
       continue;
     }
     if (m_Sunlight < card.cost) {
@@ -875,8 +930,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     return true;
   }
 
-  if (IsPixelInsideObject(m_ShovelShell, pixelX, pixelY) ||
-      IsPixelInsideObject(m_Shovel, pixelX, pixelY)) {
+  if (CollisionSystem::IsPixelInsideObject(m_ShovelShell, pixelX, pixelY) ||
+      CollisionSystem::IsPixelInsideObject(m_Shovel, pixelX, pixelY)) {
     m_SelectedPlant = PlantCardSelection::SHOVEL;
 
     auto preview =
@@ -939,6 +994,7 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
       static_cast<std::size_t>(m_SunflowerFrameIntervalMs),
       ComputePlantTargetHeight());
   sunflower->m_Transform.translation = localPosition;
+  sunflower->SetGridRow(row);
 
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
@@ -966,6 +1022,7 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
       static_cast<std::size_t>(m_PeashooterFrameIntervalMs),
       ComputePlantTargetHeight());
   peashooter->m_Transform.translation = localPosition;
+  peashooter->SetGridRow(row);
 
   m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
   m_Root.AddChild(peashooter);
@@ -995,6 +1052,7 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
       m_Nut4FramePaths, static_cast<std::size_t>(m_Nut4FrameIntervalMs),
       ComputePlantTargetHeight());
   nut->m_Transform.translation = localPosition;
+  nut->SetGridRow(row);
 
   m_Nuts[static_cast<std::size_t>(index)] = nut;
   m_Root.AddChild(nut);
@@ -1024,6 +1082,7 @@ bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
       static_cast<std::size_t>(m_CherryBombBlowFrameIntervalMs),
       ComputePlantTargetHeight());
   cherryBomb->m_Transform.translation = localPosition;
+  cherryBomb->SetGridRow(row);
 
   m_CherryBombs[static_cast<std::size_t>(index)] = cherryBomb;
   m_Root.AddChild(cherryBomb);
@@ -1398,6 +1457,12 @@ void App::SetupLawnMowers() {
     mower.active = false;
     mower.destroyed = false;
 
+    if (row == 0) {
+      const auto mowerBounds = CollisionSystem::GetCollisionBoxBounds(
+          *mowerObj, CollisionSystem::CollisionBoxType::LawnMower);
+      m_GameOverBoundaryX = mowerBounds.minX;
+    }
+
     m_Root.AddChild(mowerObj);
   }
 }
@@ -1418,15 +1483,16 @@ void App::UpdateLawnMowers(const float deltaTime) {
     if (mower.armed) {
       for (auto &zombie : m_ActiveZombies) {
         if (zombie.object == nullptr || zombie.object->IsDestroyed() ||
-            zombie.row != mower.row) {
+            zombie.object->GetGridRow() != mower.row) {
           continue;
         }
 
-        if (CheckCustomAABBCollision(
+        const auto zombieBoxType =
+            ZombieCollisionBoxHelper::GetZombieCollisionBoxType(*zombie.object);
+
+        if (CollisionSystem::CheckAABBCollision(
                 *mower.object, *zombie.object,
-                glm::vec2(0.80F, 0.75F), // mower: front body region
-                glm::vec2(0.50F, 0.80F), // zombie: torso region
-                glm::vec2(0.0F, 0.0F), glm::vec2(0.0F, 0.0F))) {
+                CollisionSystem::CollisionBoxType::LawnMower, zombieBoxType)) {
           mower.armed = false;
           mower.active = true;
           if (mower.animation != nullptr) {
@@ -1447,15 +1513,16 @@ void App::UpdateLawnMowers(const float deltaTime) {
 
     for (auto &zombie : m_ActiveZombies) {
       if (zombie.object == nullptr || zombie.object->IsDestroyed() ||
-          zombie.row != mower.row) {
+          zombie.object->GetGridRow() != mower.row) {
         continue;
       }
 
-      if (CheckCustomAABBCollision(
+      const auto zombieBoxType =
+          ZombieCollisionBoxHelper::GetZombieCollisionBoxType(*zombie.object);
+
+      if (CollisionSystem::CheckAABBCollision(
               *mower.object, *zombie.object,
-              glm::vec2(0.85F, 0.75F), // mower: sweeping body region
-              glm::vec2(0.50F, 0.80F), // zombie: torso region
-              glm::vec2(0.0F, 0.0F), glm::vec2(0.0F, 0.0F))) {
+              CollisionSystem::CollisionBoxType::LawnMower, zombieBoxType)) {
         zombie.object->TakeDamage(9999);
       }
     }
@@ -1507,8 +1574,9 @@ void App::UpdateCherryBombs(const float deltaTime) {
       const int zombieColumn = glm::clamp(
           static_cast<int>(normalizedX * kGridColumns), 0, kGridColumns - 1);
 
-      if (glm::abs(zombie.row - centerRow) <= 1 &&
-          glm::abs(zombieColumn - centerColumn) <= 1) {
+      if (CollisionSystem::CheckCherryBombExplosionCollision(
+              centerRow, centerColumn, zombie.object->GetGridRow(),
+              zombieColumn)) {
         zombie.object->TakeDamage(9999, true);
       }
     }
@@ -1520,7 +1588,7 @@ bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
     if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
       continue;
     }
-    if (zombie.row != row) {
+    if (zombie.object->GetGridRow() != row) {
       continue;
     }
     if (zombie.object->m_Transform.translation.x > shooterX) {
@@ -1560,6 +1628,7 @@ void App::SpawnPeaFromPeashooter(
 
   ActivePea activePea;
   activePea.object = pea;
+  activePea.row = peashooter->GetGridRow();
   m_Root.AddChild(pea);
   m_Peas.push_back(activePea);
 }
@@ -1605,6 +1674,7 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
 
   constexpr float kPeaSpeedPxPerSec = 0.45F * static_cast<float>(WINDOW_WIDTH);
   constexpr std::size_t kHitFrameIntervalMs = 50;
+
   for (std::size_t i = 0; i < m_Peas.size();) {
     auto &pea = m_Peas[i];
     if (!pea.hitting) {
@@ -1625,12 +1695,18 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
           continue;
         }
 
-        if (CheckCustomAABBCollision(
-                *pea.object, *zombie.object,
-                glm::vec2(0.80F, 0.75F), // pea: ignore transparent border
-                glm::vec2(0.48F, 0.80F), // zombie: focus torso region
-                glm::vec2(0.0F, 0.0F),
-                glm::vec2(-zombie.object->GetScaledSize().x * 0.10F, 0.0F))) {
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
+        const auto zombieType =
+            isPolevaultingZombie
+                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                : CollisionSystem::CollisionBoxType::BasicZombie;
+
+        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
+            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
+            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
+
+        if (isHit) {
           hitZombie = &zombie;
           break;
         }
@@ -1639,9 +1715,19 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
       if (hitZombie != nullptr) {
         hitZombie->object->TakeDamage(20);
 
-        const glm::vec2 zombieSize = hitZombie->object->GetScaledSize();
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
+            nullptr;
+        const auto zombieType =
+            isPolevaultingZombie
+                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                : CollisionSystem::CollisionBoxType::BasicZombie;
+        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            *hitZombie->object, zombieType);
         pea.object->m_Transform.translation.x =
-            hitZombie->object->m_Transform.translation.x - zombieSize.x * 0.20F;
+            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
+        pea.object->m_Transform.translation.y =
+            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
 
         auto hitAnim = std::make_shared<Util::Animation>(
             m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);
@@ -1675,20 +1761,7 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
 bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
   for (std::size_t i = 0; i < m_Suns.size(); ++i) {
     auto &sun = m_Suns[i];
-    const glm::vec2 center = {
-        sun.object->m_Transform.translation.x +
-            static_cast<float>(WINDOW_WIDTH) * 0.5F,
-        static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-            sun.object->m_Transform.translation.y,
-    };
-    const glm::vec2 size = sun.object->GetScaledSize();
-    const float halfWidth = size.x * 0.5F;
-    const float halfHeight = size.y * 0.5F;
-
-    const bool hit =
-        (pixelX >= center.x - halfWidth) && (pixelX <= center.x + halfWidth) &&
-        (pixelY >= center.y - halfHeight) && (pixelY <= center.y + halfHeight);
-    if (!hit) {
+    if (!CollisionSystem::IsPixelInsideObject(sun.object, pixelX, pixelY)) {
       continue;
     }
 
@@ -1957,6 +2030,7 @@ void App::Start() {
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
   PrepareConeheadZombieFrames();
+  PreparePolevaultingZombieFrames();
   PrepareLawnMowerFrames();
 
   SetupBannerObject(m_HugeWaveBanner, "Resources/ui/banners/huge_wave.png",
@@ -2350,19 +2424,17 @@ void App::UpdateGameplay(float deltaTime) {
   RemoveDeadPlants();
   UpdatePlantCardUIState();
 
-  // Check for game over: zombie reached left boundary
+  // Check for game over: zombie collision box crossed the car line
   for (const auto &zombie : m_ActiveZombies) {
     if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
       continue;
     }
 
-    const float zombiePixelX = zombie.object->m_Transform.translation.x +
-                               m_CameraCurrentX +
-                               static_cast<float>(WINDOW_WIDTH) * 0.5F;
-    const float zombieXPercent =
-        (zombiePixelX / static_cast<float>(WINDOW_WIDTH)) * 100.0F;
+    const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+        *zombie.object,
+        ZombieCollisionBoxHelper::GetZombieCollisionBoxType(*zombie.object));
 
-    if (zombieXPercent < kGridMinXPercent) {
+    if (zombieBounds.minX < m_GameOverBoundaryX) {
       TriggerGameOverBanner();
       m_LevelManager->CompleteLevelFailure();
       m_CurrentState = State::LEVEL_FAILED;
@@ -2389,10 +2461,12 @@ void App::UpdateGameplay(float deltaTime) {
     const float yPercent =
         (pixelY / static_cast<float>(WINDOW_HEIGHT)) * 100.0F;
 
-    m_HasClickedPoint = true;
-    m_LastClickPixel = {pixelX, pixelY};
-    m_LastClickPercent = {glm::clamp(xPercent, 0.0F, 100.0F),
-                          glm::clamp(yPercent, 0.0F, 100.0F)};
+    if constexpr (AppDebug::kEnableMouseCoordinates) {
+      m_HasClickedPoint = true;
+      m_LastClickPixel = {pixelX, pixelY};
+      m_LastClickPercent = {glm::clamp(xPercent, 0.0F, 100.0F),
+                            glm::clamp(yPercent, 0.0F, 100.0F)};
+    }
 
     const bool collectedSun = TryCollectSunAt(pixelX, pixelY);
     const bool selectedCard = TrySelectPlantCardAt(pixelX, pixelY);
@@ -2406,28 +2480,12 @@ void App::UpdateGameplay(float deltaTime) {
   m_UIRoot.Update();
   DrawSunlightCounter();
 
-  if (m_HasClickedPoint) {
-    ImGui::SetNextWindowPos(ImVec2(16.0F, 16.0F), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.70F);
-    ImGui::Begin(
-        "Click Debug", nullptr,
-        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
-    ImGui::Text("pixel: (%.1f, %.1f)", m_LastClickPixel.x, m_LastClickPixel.y);
-    ImGui::Text("percent: x=%.2f%%, y=%.2f%%", m_LastClickPercent.x,
-                m_LastClickPercent.y);
-    ImGui::End();
+  if constexpr (AppDebug::kEnableCollisionBoxes) {
+    DebugDrawCollisionBoxes();
+  }
 
-    ImDrawList *drawList = ImGui::GetForegroundDrawList();
-    const ImVec2 clickPos(m_LastClickPixel.x, m_LastClickPixel.y);
-    drawList->AddCircleFilled(clickPos, 4.0F, IM_COL32(255, 70, 70, 255));
-    drawList->AddLine(ImVec2(clickPos.x - 10.0F, clickPos.y),
-                      ImVec2(clickPos.x + 10.0F, clickPos.y),
-                      IM_COL32(255, 70, 70, 255), 2.0F);
-    drawList->AddLine(ImVec2(clickPos.x, clickPos.y - 10.0F),
-                      ImVec2(clickPos.x, clickPos.y + 10.0F),
-                      IM_COL32(255, 70, 70, 255), 2.0F);
+  if constexpr (AppDebug::kEnableMouseCoordinates) {
+    DebugDrawMouseOverlay();
   }
 }
 

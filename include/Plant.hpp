@@ -13,6 +13,8 @@ public:
 
   int GetHealth() const { return m_Health; }
   bool IsDead() const { return m_Health <= 0; }
+  int GetGridRow() const { return m_GridRow; }
+  void SetGridRow(const int row) { m_GridRow = row; }
 
   virtual void TakeDamage(const int amount) {
     if (amount <= 0 || IsDead()) {
@@ -24,6 +26,7 @@ public:
 
 private:
   int m_Health = 300;
+  int m_GridRow = -1;
 };
 
 #endif

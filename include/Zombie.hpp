@@ -21,19 +21,24 @@ public:
          float targetHeightPx, std::size_t frameIntervalMs = 120,
          float moveSpeedPxPerSec = 40.0F, int health = 200);
 
-  void Update(float dt, const std::vector<std::shared_ptr<Plant>> &plants);
+  virtual ~Zombie() = default;
+  virtual void Update(float dt,
+                      const std::vector<std::shared_ptr<Plant>> &plants);
   void TakeDamage(int amount, bool isCherryBombDamage = false);
 
   State GetState() const { return m_State; }
   bool IsDestroyed() const { return m_Destroyed; }
+  int GetGridRow() const { return m_GridRow; }
+  void SetGridRow(const int row) { m_GridRow = row; }
 
   // Set a different height to use when dying (e.g., for conehead)
   void SetDeathTargetHeightPx(float heightPx) {
     m_DeathTargetHeightPx = heightPx;
   }
 
-  static bool CheckAABBCollision(const Util::GameObject &a,
-                                 const Util::GameObject &b);
+  void SetCherryBombDeathTargetHeightPx(float heightPx) {
+    m_CherryBombDeathTargetHeightPx = heightPx;
+  }
 
 private:
   std::shared_ptr<Plant>
@@ -46,9 +51,13 @@ private:
   State m_State = State::Walking;
   bool m_Destroyed = false;
   bool m_IsCherryBombDeath = false;
+  int m_GridRow = -1;
 
+protected:
   float m_TargetHeightPx = 0.0F;
   float m_DeathTargetHeightPx = 0.0F; // 0.0 means use m_TargetHeightPx
+  float m_CherryBombDeathTargetHeightPx =
+      0.0F; // used only for cherry-bomb deaths
 
   float m_MoveSpeedPxPerSec = 40.0F;
   int m_Health = 200;
