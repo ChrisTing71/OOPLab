@@ -770,36 +770,43 @@ void App::SetupPlantCards() {
 
   m_PlantCards = {
       {
-          PlantCardSelection::SUNFLOWER,
-          kSunflowerCost,
-          m_SunflowerCard,
+          PlantCardSelection::SUNFLOWER, kSunflowerCost, m_SunflowerCard,
           m_SunflowerCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
           "Resources/ui/cards/sunflower.png",
           "Resources/ui/cards/generated/sunflower_gray.png",
+          0.0F, // cooldownRemaining
+          7.5F, // cooldownTotal
       },
       {
-          PlantCardSelection::PEASHOOTER,
-          kPeashooterCost,
-          m_PeashooterCard,
+          PlantCardSelection::PEASHOOTER, kPeashooterCost, m_PeashooterCard,
           m_PeashooterCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
           "Resources/ui/cards/peashooter.png",
           "Resources/ui/cards/generated/peashooter_gray.png",
+          0.0F, // cooldownRemaining
+          7.5F, // cooldownTotal
       },
       {
-          PlantCardSelection::NUT,
-          kNutCost,
-          m_NutCard,
-          m_NutCardGrayMask,
+          PlantCardSelection::NUT, kNutCost, m_NutCard, m_NutCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
           "Resources/ui/cards/wall-nut.png",
           "Resources/ui/cards/generated/wall-nut_gray.png",
+          0.0F,  // cooldownRemaining
+          30.0F, // cooldownTotal
       },
       {
-          PlantCardSelection::CHERRY_BOMB,
-          kCherryBombCost,
-          m_CherryBombCard,
+          PlantCardSelection::CHERRY_BOMB, kCherryBombCost, m_CherryBombCard,
           m_CherryBombCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
           "Resources/ui/cards/cherry-bomb.png",
           "Resources/ui/cards/generated/cherry-bomb_gray.png",
+          0.0F,  // cooldownRemaining
+          50.0F, // cooldownTotal
       },
   };
 
@@ -851,9 +858,29 @@ void App::SetupPlantCards() {
 
   float nextLeft = kCardsX1 + kLeftPadding;
   for (auto &card : m_PlantCards) {
-    const float width = setupCard(card.normal, card.normalImagePath, nextLeft);
+    // Setup normal card
+    auto normalImage = std::make_shared<Util::Image>(card.normalImagePath);
+    card.normalImage = normalImage;
+    card.normal->SetDrawable(normalImage);
+    card.normal->SetZIndex(12.0F);
+    card.normal->SetVisible(false);
 
+    const glm::vec2 cardSourceSize = normalImage->GetSize();
+    float cardWidthSourceScaled = 0.0F;
+    if (cardSourceSize.y > 0.0F) {
+      const float scale = targetHeightPx / cardSourceSize.y;
+      card.normal->m_Transform.scale = {scale, scale};
+      cardWidthSourceScaled = (cardSourceSize.x * scale) / scaleY;
+    }
+
+    const float sourceCenterX = nextLeft + cardWidthSourceScaled * 0.5F;
+    card.normal->m_Transform.translation =
+        CardSlotLocalFromSourceCoord(sourceCenterX, centerY);
+    m_UIRoot.AddChild(card.normal);
+
+    // Setup disabled card
     auto disabledImage = std::make_shared<Util::Image>(card.disabledImagePath);
+    card.disabledImage = disabledImage;
     card.disabled->SetDrawable(disabledImage);
     card.disabled->SetZIndex(12.5F);
     card.disabled->SetVisible(false);
@@ -862,7 +889,7 @@ void App::SetupPlantCards() {
         card.normal->m_Transform.translation;
     m_UIRoot.AddChild(card.disabled);
 
-    nextLeft += width + kCardGap;
+    nextLeft += cardWidthSourceScaled + kCardGap;
   }
 
   constexpr float kShovelShellGap = 18.0F;
@@ -898,6 +925,10 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
   for (const auto &card : m_PlantCards) {
     if (!CollisionSystem::IsPixelInsideObject(card.normal, pixelX, pixelY)) {
       continue;
+    }
+    // Check if card is in cooldown
+    if (card.cooldownRemaining > 0.0F) {
+      return false;
     }
     if (m_Sunlight < card.cost) {
       return false;
@@ -999,6 +1030,15 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
   m_Sunlight -= kSunflowerCost;
+
+  // Start cooldown for Sunflower card
+  for (auto &card : m_PlantCards) {
+    if (card.selection == PlantCardSelection::SUNFLOWER) {
+      card.cooldownRemaining = card.cooldownTotal;
+      break;
+    }
+  }
+
   return true;
 }
 
@@ -1027,6 +1067,15 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
   m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
   m_Root.AddChild(peashooter);
   m_Sunlight -= kPeashooterCost;
+
+  // Start cooldown for Peashooter card
+  for (auto &card : m_PlantCards) {
+    if (card.selection == PlantCardSelection::PEASHOOTER) {
+      card.cooldownRemaining = card.cooldownTotal;
+      break;
+    }
+  }
+
   return true;
 }
 
@@ -1057,6 +1106,15 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
   m_Nuts[static_cast<std::size_t>(index)] = nut;
   m_Root.AddChild(nut);
   m_Sunlight -= kNutCost;
+
+  // Start cooldown for Nut card
+  for (auto &card : m_PlantCards) {
+    if (card.selection == PlantCardSelection::NUT) {
+      card.cooldownRemaining = card.cooldownTotal;
+      break;
+    }
+  }
+
   return true;
 }
 
@@ -1087,6 +1145,15 @@ bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
   m_CherryBombs[static_cast<std::size_t>(index)] = cherryBomb;
   m_Root.AddChild(cherryBomb);
   m_Sunlight -= kCherryBombCost;
+
+  // Start cooldown for Cherry Bomb card
+  for (auto &card : m_PlantCards) {
+    if (card.selection == PlantCardSelection::CHERRY_BOMB) {
+      card.cooldownRemaining = card.cooldownTotal;
+      break;
+    }
+  }
+
   return true;
 }
 
@@ -1821,9 +1888,28 @@ void App::UpdatePlantCardUIState() {
     return;
   }
 
-  for (const auto &card : m_PlantCards) {
+  for (auto &card : m_PlantCards) {
     card.normal->SetVisible(true);
-    card.disabled->SetVisible(m_Sunlight < card.cost);
+
+    const bool isInCooldown = card.cooldownRemaining > 0.0F;
+    const bool insufficientSun = m_Sunlight < card.cost;
+    const bool shouldShowDisabled = insufficientSun || isInCooldown;
+
+    card.disabled->SetVisible(shouldShowDisabled);
+
+    // If in cooldown, show the fill progress
+    if (isInCooldown && card.disabledImage) {
+      const float progress =
+          1.0F - (card.cooldownRemaining / card.cooldownTotal);
+      card.disabledImage->SetFillProgress(progress);
+      card.disabledImage->SetShowFillProgress(true);
+      card.disabledImage->SetTintColor({1.0F, 1.0F, 1.0F, 1.0F});
+    } else if (card.disabledImage) {
+      // Not in cooldown, just show as grayed out if insufficient sun
+      card.disabledImage->SetShowFillProgress(false);
+      card.disabledImage->SetFillProgress(1.0F);
+      card.disabledImage->SetTintColor({1.0F, 1.0F, 1.0F, 1.0F});
+    }
   }
   m_ShovelShell->SetVisible(true);
   m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
@@ -2431,6 +2517,16 @@ void App::UpdateGameplay(float deltaTime) {
   UpdateLawnMowers(dt);
   UpdateCherryBombs(deltaTime);
   UpdatePeashooterCombat(dt);
+
+  // Update plant card cooldowns
+  for (auto &card : m_PlantCards) {
+    if (card.cooldownRemaining > 0.0F) {
+      card.cooldownRemaining -= dt;
+      if (card.cooldownRemaining < 0.0F) {
+        card.cooldownRemaining = 0.0F;
+      }
+    }
+  }
 
   RemoveDeadPlants();
   UpdatePlantCardUIState();

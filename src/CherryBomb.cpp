@@ -6,6 +6,9 @@ CherryBomb::CherryBomb(const std::vector<std::string> &idleFramePaths,
                        const std::size_t blowFrameIntervalMs,
                        const float targetHeightPx)
     : m_TargetHeightPx(targetHeightPx) {
+  // Set cooldown time for Cherry Bomb (50 seconds)
+  SetCooldownTime(50.0F);
+
   m_IdleAnimation = std::make_shared<Util::Animation>(
       idleFramePaths, true, idleFrameIntervalMs, false, 0);
   m_BlowAnimation = std::make_shared<Util::Animation>(

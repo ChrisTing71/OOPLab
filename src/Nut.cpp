@@ -24,6 +24,8 @@ Nut::Nut(const std::vector<std::string> &nut1FramePaths,
          const std::vector<std::string> &nut4FramePaths,
          const std::size_t nut4FrameIntervalMs, const float targetHeight)
     : Plant(kMaxHealth), m_TargetHeight(targetHeight) {
+  // Set cooldown time for Nut (30 seconds)
+  SetCooldownTime(30.0F);
   m_Stage1Animation = std::make_shared<Util::Animation>(
       nut1FramePaths, true, nut1FrameIntervalMs, true, 0);
   m_Stage2Animation = std::make_shared<Util::Animation>(

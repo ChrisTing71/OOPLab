@@ -5,6 +5,9 @@
 Sunflower::Sunflower(const std::vector<std::string> &framePaths,
                      const std::size_t frameIntervalMs,
                      const float targetHeightPx) {
+  // Set cooldown time for Sunflower (7.5 seconds)
+  SetCooldownTime(7.5F);
+
   auto animation = std::make_shared<Util::Animation>(framePaths, true,
                                                      frameIntervalMs, true, 0);
 
