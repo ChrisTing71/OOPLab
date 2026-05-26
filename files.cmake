@@ -12,6 +12,7 @@ set(SRC_FILES
     Peashooter.cpp
     Sun.cpp
     Sunflower.cpp
+    Sunshroom.cpp
     WaveConfig.cpp
     Zombie.cpp
 )
@@ -31,6 +32,7 @@ set(INCLUDE_FILES
     Plant.hpp
     Sun.hpp
     Sunflower.hpp
+    Sunshroom.hpp
     WaveConfig.hpp
     Zombie.hpp
 )

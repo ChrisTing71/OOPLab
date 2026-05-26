@@ -154,6 +154,7 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
+         m_Sunshrooms[static_cast<std::size_t>(index)] != nullptr ||
          m_Peashooters[static_cast<std::size_t>(index)] != nullptr ||
          m_Nuts[static_cast<std::size_t>(index)] != nullptr ||
          m_CherryBombs[static_cast<std::size_t>(index)] != nullptr;
@@ -215,6 +216,20 @@ bool App::PrepareSunflowerFrames() {
                               "Resources/gameplay/plants/sunflower_frames",
                               "sunflower_frame", m_SunflowerFramePaths,
                               m_SunflowerFrameIntervalMs);
+}
+
+bool App::PrepareSunshroomFrames() {
+  const bool initialOk = PrepareFramesFromGif(
+      "Resources/gameplay/plants/sunshroom.gif",
+      "Resources/gameplay/plants/sunshroom_frames",
+      "sunshroom_frame", m_SunshroomInitialFramePaths,
+      m_SunshroomInitialFrameIntervalMs);
+  const bool grownOk = PrepareFramesFromGif(
+      "Resources/gameplay/plants/sunshroom_grow_up.gif",
+      "Resources/gameplay/plants/sunshroom_grow_up_frames",
+      "sunshroom_grow_up_frame", m_SunshroomGrownFramePaths,
+      m_SunshroomGrownFrameIntervalMs);
+  return initialOk && grownOk;
 }
 
 bool App::PreparePeashooterFrames() {
@@ -686,6 +701,12 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
     }
   }
 
+  for (const auto &sunshroom : m_Sunshrooms) {
+    if (sunshroom != nullptr && !sunshroom->IsDead()) {
+      plants.push_back(sunshroom);
+    }
+  }
+
   for (const auto &peashooter : m_Peashooters) {
     if (peashooter != nullptr && !peashooter->IsDead()) {
       plants.push_back(peashooter);
@@ -708,8 +729,9 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
 }
 
 void App::SetupPlantCards() {
-  if (!PrepareSunflowerFrames() || !PreparePeashooterFrames() ||
-      !PrepareNutFrames() || !PrepareCherryBombFrames()) {
+  if (!PrepareSunflowerFrames() || !PrepareSunshroomFrames() ||
+      !PreparePeashooterFrames() || !PrepareNutFrames() ||
+      !PrepareCherryBombFrames()) {
     return;
   }
 
@@ -721,6 +743,14 @@ void App::SetupPlantCards() {
           m_SunflowerCardGrayMask,
           "Resources/ui/cards/sunflower.png",
           "Resources/ui/cards/generated/sunflower_gray.png",
+      },
+      {
+          PlantCardSelection::SUNSHROOM,
+          kSunshroomCost,
+          m_SunshroomCard,
+          m_SunshroomCardGrayMask,
+          "Resources/ui/cards/sunshroom.png",
+          "Resources/ui/cards/generated/sunshroom_gray.png",
       },
       {
           PlantCardSelection::PEASHOOTER,
@@ -852,6 +882,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     std::shared_ptr<Util::Image> preview = nullptr;
     if (card.selection == PlantCardSelection::SUNFLOWER) {
       preview = std::make_shared<Util::Image>(m_SunflowerFramePaths.front());
+    } else if (card.selection == PlantCardSelection::SUNSHROOM) {
+      preview = std::make_shared<Util::Image>(m_SunshroomInitialFramePaths.front());
     } else if (card.selection == PlantCardSelection::PEASHOOTER) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
     } else if (card.selection == PlantCardSelection::NUT) {
@@ -943,6 +975,33 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
   m_Sunlight -= kSunflowerCost;
+  return true;
+}
+
+bool App::PlaceSunshroomAtGridCell(const int row, const int column) {
+  if (!PrepareSunshroomFrames()) {
+    return false;
+  }
+
+  if (m_Sunlight < kSunshroomCost) {
+    return false;
+  }
+
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
+    return false;
+  }
+
+  auto sunshroom = std::make_shared<Sunshroom>(
+      m_SunshroomInitialFramePaths, m_SunshroomGrownFramePaths,
+      static_cast<std::size_t>(m_SunshroomInitialFrameIntervalMs),
+      ComputePlantTargetHeight());
+  sunshroom->m_Transform.translation = localPosition;
+
+  m_Sunshrooms[static_cast<std::size_t>(index)] = sunshroom;
+  m_Root.AddChild(sunshroom);
+  m_Sunlight -= kSunshroomCost;
   return true;
 }
 
@@ -1049,6 +1108,9 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   auto &sunflower = m_Sunflowers[static_cast<std::size_t>(index)];
   removePlant(sunflower);
 
+  auto &sunshroom = m_Sunshrooms[static_cast<std::size_t>(index)];
+  removePlant(sunshroom);
+
   auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
   removePlant(peashooter);
 
@@ -1095,6 +1157,7 @@ void App::SpawnFallingSun() {
   activeSun.stopLocalY = stopLocalY;
   activeSun.fromSky = true;
   activeSun.expires = true;
+  activeSun.value = 25;
   m_UIRoot.AddChild(sun);
   m_Suns.push_back(activeSun);
 }
@@ -1126,6 +1189,7 @@ void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
   ActiveSun activeSun;
   activeSun.object = sun;
   activeSun.producer = sunflower;
+  activeSun.value = 25;
   activeSun.falling = false;
   activeSun.expires = false;
   activeSun.rising = true;
@@ -1133,6 +1197,61 @@ void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
   activeSun.riseTarget = targetPosition;
   m_UIRoot.AddChild(sun);
   m_Suns.push_back(activeSun);
+}
+
+void App::SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
+                                   const int sunValue) {
+  constexpr float kSunHeightPercent = 10.0F;
+  constexpr float kPopDistancePercent = 7.0F;
+  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
+
+  if (sunshroom == nullptr) {
+    return;
+  }
+
+  const float sunHeightPx =
+      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+  auto sun = std::make_shared<Sun>(sunHeightPx);
+
+  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
+  const glm::vec2 startPosition = sunshroom->m_Transform.translation +
+                                  sunshroom->GetSunSpawnOffset() +
+                                  rootToScreenOffset;
+  const glm::vec2 targetPosition =
+      sunshroom->m_Transform.translation +
+      sunshroom->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
+                                       static_cast<float>(WINDOW_HEIGHT)) +
+      rootToScreenOffset;
+  sun->m_Transform.translation = startPosition;
+
+  ActiveSun activeSun;
+  activeSun.object = sun;
+  activeSun.producer = sunshroom;
+  activeSun.value = sunValue;
+  activeSun.falling = false;
+  activeSun.expires = false;
+  activeSun.rising = true;
+  activeSun.riseStart = startPosition;
+  activeSun.riseTarget = targetPosition;
+  m_UIRoot.AddChild(sun);
+  m_Suns.push_back(activeSun);
+}
+
+void App::UpdateSunshrooms(const float deltaTime) {
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  for (const auto &sunshroom : m_Sunshrooms) {
+    if (sunshroom == nullptr || sunshroom->IsDead()) {
+      continue;
+    }
+
+    sunshroom->Update(deltaTime);
+    if (sunshroom->ShouldProduceSun(deltaTime)) {
+      SpawnSunFromSunshroom(sunshroom, sunshroom->GetProducedSunValue());
+    }
+  }
 }
 
 glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
@@ -1233,7 +1352,7 @@ void App::UpdateSuns(const float deltaTime) {
         producer->OnProducedSunCollected();
       }
       RemoveSunAt(i);
-      m_Sunlight += 25;
+      m_Sunlight += sun.value;
       continue;
     }
 
@@ -1729,6 +1848,13 @@ void App::RemoveDeadPlants() {
     }
   }
 
+  for (auto &sunshroom : m_Sunshrooms) {
+    if (sunshroom != nullptr && sunshroom->IsDead()) {
+      m_Root.RemoveChild(sunshroom);
+      sunshroom = nullptr;
+    }
+  }
+
   for (auto &cherryBomb : m_CherryBombs) {
     if (cherryBomb != nullptr && cherryBomb->IsDead()) {
       m_Root.RemoveChild(cherryBomb);
@@ -1780,6 +1906,8 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
     bool placed = false;
     if (m_SelectedPlant == PlantCardSelection::SUNFLOWER) {
       placed = PlaceSunflowerAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::SUNSHROOM) {
+      placed = PlaceSunshroomAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
       placed = PlacePeashooterAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::NUT) {
@@ -2292,6 +2420,7 @@ void App::ResetLevelRuntimeState() {
   m_LastHitColumn = 0;
 
   m_Sunflowers.fill(nullptr);
+  m_Sunshrooms.fill(nullptr);
   m_Peashooters.fill(nullptr);
   m_Nuts.fill(nullptr);
   m_Peas.clear();
@@ -2345,6 +2474,7 @@ void App::UpdateGameplay(float deltaTime) {
   UpdateBasicZombie(dt);
   UpdateLawnMowers(dt);
   UpdateCherryBombs(deltaTime);
+  UpdateSunshrooms(dt);
   UpdatePeashooterCombat(dt);
 
   RemoveDeadPlants();
