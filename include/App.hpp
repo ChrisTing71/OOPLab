@@ -13,6 +13,7 @@
 #include "Peashooter.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
+#include "Util/Image.hpp"
 #include "Util/Renderer.hpp"
 #include "WaveConfig.hpp"
 #include "Zombie.hpp"
@@ -111,8 +112,12 @@ public:
     int cost = 0;
     std::shared_ptr<Util::GameObject> normal = nullptr;
     std::shared_ptr<Util::GameObject> disabled = nullptr;
+    std::shared_ptr<Util::Image> normalImage = nullptr;
+    std::shared_ptr<Util::Image> disabledImage = nullptr;
     std::string normalImagePath;
     std::string disabledImagePath;
+    float cooldownRemaining = 0.0F; // Remaining cooldown in seconds
+    float cooldownTotal = 7.5F;     // Total cooldown time for this card
   };
 
 private:
