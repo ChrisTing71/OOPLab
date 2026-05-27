@@ -212,10 +212,10 @@ float App::ComputePlantPreviewTargetHeight() const {
 }
 
 bool App::PrepareSunflowerFrames() {
-  return PrepareFramesFromGif("Resources/gameplay/plants/sunflower/sunflower.gif",
-                              "Resources/gameplay/plants/sunflower/sunflower_frames",
-                              "sunflower_frame", m_SunflowerFramePaths,
-                              m_SunflowerFrameIntervalMs);
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/sunflower/sunflower.gif",
+      "Resources/gameplay/plants/sunflower/sunflower_frames", "sunflower_frame",
+      m_SunflowerFramePaths, m_SunflowerFrameIntervalMs);
 }
 
 bool App::PrepareSunshroomFrames() {
@@ -232,10 +232,10 @@ bool App::PrepareSunshroomFrames() {
 }
 
 bool App::PreparePeashooterFrames() {
-    return PrepareFramesFromGif("Resources/gameplay/plants/peashooter/peashooter.gif",
-                  "Resources/gameplay/plants/peashooter/peashooter_frames",
-                              "peashooter_frame", m_PeashooterFramePaths,
-                              m_PeashooterFrameIntervalMs);
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/peashooter/peashooter.gif",
+      "Resources/gameplay/plants/peashooter/peashooter_frames",
+      "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
 }
 
 bool App::PrepareNutFrames() {
@@ -279,7 +279,8 @@ bool App::PrepareCherryBombBlowFrames() {
 
 bool App::PreparePeashooterAttackFrames() {
   return PrepareFramesFromGif(
-      "Resources/gameplay/plants/peashooter/peashooter_attack/Mobile - Plants vs. "
+      "Resources/gameplay/plants/peashooter/peashooter_attack/Mobile - Plants "
+      "vs. "
       "Zombies 2 - Peashooter - Attack.gif",
       "Resources/gameplay/plants/peashooter/peashooter_attack/frames",
       "peashooter_attack_frame", m_PeashooterAttackFramePaths,

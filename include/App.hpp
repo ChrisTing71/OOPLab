@@ -164,7 +164,7 @@ private:
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
   void SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
-                               int sunValue);
+                             int sunValue);
   void UpdateSuns(float deltaTime);
   void UpdateSunshrooms(float deltaTime);
   void PrepareBasicZombieStandPreview();
