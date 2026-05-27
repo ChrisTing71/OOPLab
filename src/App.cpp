@@ -212,29 +212,28 @@ float App::ComputePlantPreviewTargetHeight() const {
 }
 
 bool App::PrepareSunflowerFrames() {
-  return PrepareFramesFromGif("Resources/gameplay/plants/sunflower.gif",
-                              "Resources/gameplay/plants/sunflower_frames",
+  return PrepareFramesFromGif("Resources/gameplay/plants/sunflower/sunflower.gif",
+                              "Resources/gameplay/plants/sunflower/sunflower_frames",
                               "sunflower_frame", m_SunflowerFramePaths,
                               m_SunflowerFrameIntervalMs);
 }
 
 bool App::PrepareSunshroomFrames() {
   const bool initialOk = PrepareFramesFromGif(
-      "Resources/gameplay/plants/sunshroom.gif",
-      "Resources/gameplay/plants/sunshroom_frames",
-      "sunshroom_frame", m_SunshroomInitialFramePaths,
-      m_SunshroomInitialFrameIntervalMs);
+      "Resources/gameplay/plants/sunshroom/sunshroom.gif",
+      "Resources/gameplay/plants/sunshroom/sunshroom_frames", "sunshroom_frame",
+      m_SunshroomInitialFramePaths, m_SunshroomInitialFrameIntervalMs);
   const bool grownOk = PrepareFramesFromGif(
-      "Resources/gameplay/plants/sunshroom_grow_up.gif",
-      "Resources/gameplay/plants/sunshroom_grow_up_frames",
+      "Resources/gameplay/plants/sunshroom/sunshroom_grow_up.gif",
+      "Resources/gameplay/plants/sunshroom/sunshroom_grow_up_frames",
       "sunshroom_grow_up_frame", m_SunshroomGrownFramePaths,
       m_SunshroomGrownFrameIntervalMs);
   return initialOk && grownOk;
 }
 
 bool App::PreparePeashooterFrames() {
-  return PrepareFramesFromGif("Resources/gameplay/plants/peashooter.gif",
-                              "Resources/gameplay/plants/peashooter_frames",
+    return PrepareFramesFromGif("Resources/gameplay/plants/peashooter/peashooter.gif",
+                  "Resources/gameplay/plants/peashooter/peashooter_frames",
                               "peashooter_frame", m_PeashooterFramePaths,
                               m_PeashooterFrameIntervalMs);
 }
@@ -280,9 +279,9 @@ bool App::PrepareCherryBombBlowFrames() {
 
 bool App::PreparePeashooterAttackFrames() {
   return PrepareFramesFromGif(
-      "Resources/gameplay/plants/peashooter_attack/Mobile - Plants vs. "
+      "Resources/gameplay/plants/peashooter/peashooter_attack/Mobile - Plants vs. "
       "Zombies 2 - Peashooter - Attack.gif",
-      "Resources/gameplay/plants/peashooter_attack/frames",
+      "Resources/gameplay/plants/peashooter/peashooter_attack/frames",
       "peashooter_attack_frame", m_PeashooterAttackFramePaths,
       m_PeashooterAttackFrameIntervalMs);
 }
@@ -883,7 +882,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     if (card.selection == PlantCardSelection::SUNFLOWER) {
       preview = std::make_shared<Util::Image>(m_SunflowerFramePaths.front());
     } else if (card.selection == PlantCardSelection::SUNSHROOM) {
-      preview = std::make_shared<Util::Image>(m_SunshroomInitialFramePaths.front());
+      preview =
+          std::make_shared<Util::Image>(m_SunshroomInitialFramePaths.front());
     } else if (card.selection == PlantCardSelection::PEASHOOTER) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
     } else if (card.selection == PlantCardSelection::NUT) {
@@ -1200,7 +1200,7 @@ void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
 }
 
 void App::SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
-                                   const int sunValue) {
+                                const int sunValue) {
   constexpr float kSunHeightPercent = 10.0F;
   constexpr float kPopDistancePercent = 7.0F;
   constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
@@ -1348,11 +1348,17 @@ void App::UpdateSuns(const float deltaTime) {
     const auto &sun = m_Suns[i];
 
     if (sun.collecting && sun.collectElapsed >= kCollectMoveSeconds) {
-      if (const auto producer = sun.producer.lock(); producer != nullptr) {
+      // Capture needed data before modifying `m_Suns` (which may invalidate
+      // references/iterators). Accessing `sun` after RemoveSunAt() is UB.
+      const int collectedValue = sun.value;
+      const auto producerWeak = sun.producer;
+
+      if (const auto producer = producerWeak.lock(); producer != nullptr) {
         producer->OnProducedSunCollected();
       }
+
       RemoveSunAt(i);
-      m_Sunlight += sun.value;
+      m_Sunlight += collectedValue;
       continue;
     }
 
@@ -1657,7 +1663,7 @@ void App::SpawnPeaFromPeashooter(
 
   auto pea = std::make_shared<Util::GameObject>();
   auto peaImage = std::make_shared<Util::Image>(
-      "Resources/gameplay/plants/peashooter_bullet/pea.png");
+      "Resources/gameplay/plants/peashooter/peashooter_bullet/pea.png");
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
