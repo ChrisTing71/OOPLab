@@ -15,6 +15,7 @@
 #include "Sun.hpp"
 #include "Sunflower.hpp"
 #include "Sunshroom.hpp"
+#include "Util/Image.hpp"
 #include "Util/Renderer.hpp"
 #include "WaveConfig.hpp"
 #include "Zombie.hpp"
@@ -70,13 +71,13 @@ public:
 
   struct ActivePea {
     std::shared_ptr<Util::GameObject> object;
+    int row = -1;
     bool hitting = false;
     std::shared_ptr<Util::Animation> hitAnimation = nullptr;
   };
 
   struct ActiveZombie {
     std::shared_ptr<Zombie> object;
-    int row = 0;
   };
 
   struct LawnMower {
@@ -115,8 +116,12 @@ public:
     int cost = 0;
     std::shared_ptr<Util::GameObject> normal = nullptr;
     std::shared_ptr<Util::GameObject> disabled = nullptr;
+    std::shared_ptr<Util::Image> normalImage = nullptr;
+    std::shared_ptr<Util::Image> disabledImage = nullptr;
     std::string normalImagePath;
     std::string disabledImagePath;
+    float cooldownRemaining = 0.0F; // Remaining cooldown in seconds
+    float cooldownTotal = 7.5F;     // Total cooldown time for this card
   };
 
 private:
@@ -142,6 +147,7 @@ private:
   bool PrepareBasicZombieFrames();
   bool PrepareLeaderZombieFrames();
   bool PrepareConeheadZombieFrames();
+  bool PreparePolevaultingZombieFrames();
   bool PrepareLawnMowerFrames();
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
@@ -200,6 +206,8 @@ private:
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
+  void DebugDrawMouseOverlay() const;
+  void DebugDrawCollisionBoxes() const;
   void SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,
                          const std::string &imagePath, float zIndex,
                          bool fullScreen) const;
@@ -224,8 +232,9 @@ private:
 
   // Zombie animation size scale factors
   static constexpr float kBasicZombieHeightScale = 1.0F;
-  static constexpr float kLeaderZombieHeightScale = 1.4F;
+  static constexpr float kLeaderZombieHeightScale = 1.3F;
   static constexpr float kConeheadZombieHeightScale = 1.2F;
+  static constexpr float kPolevaultingZombieHeightScale = 1.7F;
 
 private:
   State m_CurrentState = State::START;
@@ -309,6 +318,20 @@ private:
   int m_ConeheadZombieEatFrameIntervalMs = 120;
   std::vector<std::string> m_ConeheadZombieDeadFramePaths;
   int m_ConeheadZombieDeadFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieStandFramePaths;
+  int m_PolevaultingZombieStandFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieRunFramePaths;
+  int m_PolevaultingZombieRunFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieJump1FramePaths;
+  int m_PolevaultingZombieJump1FrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieJump2FramePaths;
+  int m_PolevaultingZombieJump2FrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieWalkFramePaths;
+  int m_PolevaultingZombieWalkFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieEatFramePaths;
+  int m_PolevaultingZombieEatFrameIntervalMs = 120;
+  std::vector<std::string> m_PolevaultingZombieDeadFramePaths;
+  int m_PolevaultingZombieDeadFrameIntervalMs = 120;
   std::vector<std::string> m_LawnMowerFramePaths;
   int m_LawnMowerFrameIntervalMs = 100;
   std::vector<std::string> m_CherryBombDeadFramePaths;
@@ -317,6 +340,7 @@ private:
   std::vector<glm::vec2> m_BasicZombieStandPercents;
   std::vector<ActiveZombie> m_ActiveZombies;
   std::array<LawnMower, kGridRows> m_LawnMowers{};
+  float m_GameOverBoundaryX = kGridMinXPercent;
   bool m_BasicZombieStandReady = false;
   bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;

@@ -34,6 +34,21 @@ configure_file(
     ${ptsd_SOURCE_DIR}/src/Util/Renderer.cpp
     COPYONLY
 )
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ptsd_overrides/include/Util/Image.hpp
+    ${ptsd_SOURCE_DIR}/include/Util/Image.hpp
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ptsd_overrides/src/Util/Image.cpp
+    ${ptsd_SOURCE_DIR}/src/Util/Image.cpp
+    COPYONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ptsd_overrides/assets/shaders/Base.frag
+    ${ptsd_SOURCE_DIR}/assets/shaders/Base.frag
+    COPYONLY
+)
 
 FetchContent_Declare(
     nlohmann_json

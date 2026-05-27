@@ -33,6 +33,7 @@
             "zombieTypes": [
                 "basic",
                 "conehead",
+                "polevaulting",
                 "basic"
             ],
             "randomOrder": true

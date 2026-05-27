@@ -2,7 +2,7 @@
     "levelId": 3,
     "name": "Level 3 - Endless Waves",
     "description": "Waves keep coming. Survive and thrive!",
-    "sceneType": "day",
+    "sceneType": "night",
     "initialSunAmount": 50,
     "difficultyBadge": "Easy",
     "minDefensePoints": 0,
