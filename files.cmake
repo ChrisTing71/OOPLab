@@ -16,6 +16,7 @@ set(SRC_FILES
     Sun.cpp
     Sunflower.cpp
     Sunshroom.cpp
+    Puffshroom.cpp
     WaveConfig.cpp
     Zombie.cpp
 )
@@ -39,6 +40,7 @@ set(INCLUDE_FILES
     Sun.hpp
     Sunflower.hpp
     Sunshroom.hpp
+    Puffshroom.hpp
     WaveConfig.hpp
     Zombie.hpp
     ZombieCollisionBoxHelper.hpp

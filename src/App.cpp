@@ -208,6 +208,29 @@ bool App::PreparePeashooterFrames() {
       "peashooter_frame", m_PeashooterFramePaths, m_PeashooterFrameIntervalMs);
 }
 
+bool App::PreparePuffshroomFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/puffshroom/puffshroom.gif",
+      "Resources/gameplay/plants/puffshroom/puffshroom_frames",
+      "puffshroom_frame", m_PuffshroomFramePaths, m_PuffshroomFrameIntervalMs);
+}
+
+bool App::PrepareShroomBulletFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/shroom_bullet/bullet.gif",
+      "Resources/gameplay/plants/shroom_bullet/bullet_frames",
+      "shroom_bullet_frame", m_ShroomBulletFramePaths,
+      m_ShroomBulletFrameIntervalMs);
+}
+
+bool App::PrepareShroomBulletHitFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/shroom_bullet/hit.gif",
+      "Resources/gameplay/plants/shroom_bullet/hit_frames",
+      "shroom_bullet_hit_frame", m_ShroomBulletHitFramePaths,
+      m_ShroomBulletHitFrameIntervalMs);
+}
+
 bool App::PrepareNutFrames() {
   const bool ok1 = PrepareFramesFromGif(
       "Resources/gameplay/plants/wall_nut/nut1/Mobile - Plants vs. Zombies 2 - "
@@ -762,6 +785,12 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
     }
   }
 
+  for (const auto &puff : m_Puffshrooms) {
+    if (puff != nullptr && !puff->IsDead()) {
+      plants.push_back(puff);
+    }
+  }
+
   for (const auto &peashooter : m_Peashooters) {
     if (peashooter != nullptr && !peashooter->IsDead()) {
       plants.push_back(peashooter);
@@ -786,7 +815,8 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
 void App::SetupPlantCards() {
   if (!PrepareSunflowerFrames() || !PrepareSunshroomFrames() ||
       !PreparePeashooterFrames() || !PrepareNutFrames() ||
-      !PrepareCherryBombFrames()) {
+      !PrepareCherryBombFrames() || !PreparePuffshroomFrames() ||
+      !PrepareShroomBulletFrames() || !PrepareShroomBulletHitFrames()) {
     return;
   }
 
@@ -808,6 +838,16 @@ void App::SetupPlantCards() {
           nullptr, // disabledImage
           "Resources/ui/cards/sunshroom.png",
           "Resources/ui/cards/generated/sunshroom_gray.png",
+          0.0F, // cooldownRemaining
+          7.5F, // cooldownTotal
+      },
+      {
+          PlantCardSelection::PUFFSHROOM, 0, m_PuffshroomCard,
+          m_PuffshroomCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
+          "Resources/ui/cards/puffshroom.png",
+          "Resources/ui/cards/generated/puffshroom_gray.png",
           0.0F, // cooldownRemaining
           7.5F, // cooldownTotal
       },
@@ -973,6 +1013,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
     } else if (card.selection == PlantCardSelection::SUNSHROOM) {
       preview =
           std::make_shared<Util::Image>(m_SunshroomInitialFramePaths.front());
+    } else if (card.selection == PlantCardSelection::PUFFSHROOM) {
+      preview = std::make_shared<Util::Image>(m_PuffshroomFramePaths.front());
     } else if (card.selection == PlantCardSelection::PEASHOOTER) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
     } else if (card.selection == PlantCardSelection::NUT) {
@@ -1129,6 +1171,40 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
   m_Sunlight -= kPeashooterCost;
 
   // Cooldown handled centrally by StartPlantCardCooldown
+
+  return true;
+}
+
+bool App::PlacePuffshroomAtGridCell(const int row, const int column) {
+  if (!PreparePuffshroomFrames()) {
+    return false;
+  }
+
+  // Puffshroom is free (cost 0) but ensure PreparePlantPlacement
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
+    return false;
+  }
+
+  auto puff = std::make_shared<Puffshroom>(
+      m_PuffshroomFramePaths,
+      static_cast<std::size_t>(m_PuffshroomFrameIntervalMs),
+      ComputePlantTargetHeight());
+  puff->m_Transform.translation = localPosition;
+
+  // Move puffshroom up by 30% of cell height
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float upwardOffsetPx =
+      (cellHeightPercent * 0.20F / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
+  puff->m_Transform.translation.y += upwardOffsetPx;
+
+  puff->SetGridRow(row);
+
+  m_Puffshrooms[static_cast<std::size_t>(index)] = puff;
+  m_Root.AddChild(puff);
+  // cost 0: no sunlight deduction
 
   return true;
 }
@@ -1810,8 +1886,219 @@ void App::SpawnPeaFromPeashooter(
   ActivePea activePea;
   activePea.object = pea;
   activePea.row = peashooter->GetGridRow();
+  activePea.type = ActivePea::ProjectileType::PEASHOOTER;
   m_Root.AddChild(pea);
   m_Peas.push_back(activePea);
+}
+
+void App::SpawnShroomBulletFromPuffshroom(
+    const std::shared_ptr<Puffshroom> &puff) {
+  if (puff == nullptr) {
+    return;
+  }
+
+  auto bullet = std::make_shared<Util::GameObject>();
+  auto bulletAnim = std::make_shared<Util::Animation>(
+      m_ShroomBulletFramePaths, true,
+      static_cast<std::size_t>(m_ShroomBulletFrameIntervalMs), true, 0);
+  bullet->SetDrawable(bulletAnim);
+  bullet->SetZIndex(1.2F);
+
+  const float targetHeight = ComputePeaTargetHeight();
+  const glm::vec2 bulletNaturalSize = bulletAnim->GetSize();
+  if (bulletNaturalSize.y > 0.0F) {
+    const float scale = targetHeight / bulletNaturalSize.y;
+    bullet->m_Transform.scale = {scale, scale};
+  }
+
+  const glm::vec2 shooterSize = puff->GetScaledSize();
+  bullet->m_Transform.translation = puff->m_Transform.translation;
+  bullet->m_Transform.translation.x += shooterSize.x * 0.28F;
+  const float cellHeightPercent =
+      (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
+  const float upwardOffsetPx =
+      -((cellHeightPercent * 0.2F / 100.0F) * static_cast<float>(WINDOW_HEIGHT));
+  bullet->m_Transform.translation.y += upwardOffsetPx;
+
+  ActivePea activePea;
+  activePea.object = bullet;
+  activePea.row = puff->GetGridRow();
+  activePea.type = ActivePea::ProjectileType::PUFFSHROOM;
+  m_Root.AddChild(bullet);
+  m_Peas.push_back(activePea);
+}
+
+void App::UpdatePuffshroomCombat(const float deltaTime) {
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  if (!PrepareShroomBulletFrames() || !PrepareShroomBulletHitFrames()) {
+    return;
+  }
+
+  constexpr float kShootIntervalSec = 1.0F;
+  constexpr std::size_t kShootFrameIndex = 16;
+  const float kAttackWarmupSec =
+      static_cast<float>(kShootFrameIndex * m_PeashooterAttackFrameIntervalMs) /
+      1000.0F;
+  // Compute cell width in pixels for 3-cell range
+  const float cellWidthPercent =
+      (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
+  const float cellWidthPx =
+      (cellWidthPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+
+  // Update attack cooldowns and spawn bullets
+  for (int index = 0; index < kGridCellCount; ++index) {
+    auto &puff = m_Puffshrooms[static_cast<std::size_t>(index)];
+    if (puff == nullptr || puff->IsDead()) {
+      continue;
+    }
+
+    const int row = index / kGridColumns;
+    const float puffX = puff->m_Transform.translation.x;
+
+    // Find zombies in same row within 3 cells to the right
+    bool hasZombieInRange = false;
+    const float rightLimit = puffX + cellWidthPx * 3.0F;
+    for (const auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+        continue;
+      }
+      if (zombie.object->GetGridRow() != row) {
+        continue;
+      }
+      const float zx = zombie.object->m_Transform.translation.x;
+      if (zx > puffX && zx <= rightLimit) {
+        hasZombieInRange = true;
+        break;
+      }
+    }
+
+    auto &cooldown =
+        m_PuffshroomAttackCooldowns[static_cast<std::size_t>(index)];
+    auto &warmup =
+        m_PuffshroomAttackWarmupRemaining[static_cast<std::size_t>(index)];
+    if (!hasZombieInRange) {
+      cooldown = kShootIntervalSec;
+      warmup = 0.0F;
+      continue;
+    }
+
+    cooldown -= deltaTime;
+    if (cooldown > 0.0F) {
+      warmup = 0.0F;
+      continue;
+    }
+
+    if (warmup <= 0.0F) {
+      warmup = kAttackWarmupSec;
+      continue;
+    }
+
+    warmup -= deltaTime;
+    if (warmup <= 0.0F) {
+      SpawnShroomBulletFromPuffshroom(puff);
+      cooldown = kShootIntervalSec;
+      warmup = 0.0F;
+    }
+  }
+
+  // Handle bullet movement and collision detection
+  constexpr float kBulletSpeedPxPerSec =
+      0.225F * static_cast<float>(WINDOW_WIDTH); // Half of original speed
+  constexpr float kHitDisplayDurationSec = 0.2F;
+
+  for (std::size_t i = 0; i < m_Peas.size();) {
+    auto &pea = m_Peas[i];
+    if (!pea.hitting) {
+      pea.object->m_Transform.translation.x += kBulletSpeedPxPerSec * deltaTime;
+
+      const bool outOfRight =
+          pea.object->m_Transform.translation.x >
+          (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
+      if (outOfRight) {
+        m_Root.RemoveChild(pea.object);
+        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        continue;
+      }
+
+      ActiveZombie *hitZombie = nullptr;
+      for (auto &zombie : m_ActiveZombies) {
+        if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+          continue;
+        }
+
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
+        const auto zombieType =
+            isPolevaultingZombie
+                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                : CollisionSystem::CollisionBoxType::BasicZombie;
+
+        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
+            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
+            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
+
+        if (isHit) {
+          hitZombie = &zombie;
+          break;
+        }
+      }
+
+      if (hitZombie != nullptr) {
+        hitZombie->object->TakeDamage(20);
+
+        const bool isPolevaultingZombie =
+            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
+            nullptr;
+        const auto zombieType =
+            isPolevaultingZombie
+                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                : CollisionSystem::CollisionBoxType::BasicZombie;
+        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            *hitZombie->object, zombieType);
+        pea.object->m_Transform.translation.x =
+            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
+        pea.object->m_Transform.translation.y =
+            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
+
+        // Use hit animation with 0.2 second display time
+        auto hitAnim = std::make_shared<Util::Animation>(
+            m_ShroomBulletHitFramePaths, false,
+            static_cast<std::size_t>(m_ShroomBulletHitFrameIntervalMs), false,
+            0);
+        pea.object->SetDrawable(hitAnim);
+
+        const glm::vec2 bulletSize = pea.object->GetScaledSize();
+        const glm::vec2 hitSize = hitAnim->GetSize();
+        if (hitSize.y > 0.0F && bulletSize.y > 0.0F) {
+          const float scale = bulletSize.y / hitSize.y;
+          pea.object->m_Transform.scale = {scale, scale};
+        }
+
+        pea.hitting = true;
+        pea.hitAnimation = hitAnim;
+      }
+      ++i;
+      continue;
+    }
+
+    // Handle hit animation display (0.2 seconds)
+    if (pea.hitAnimation != nullptr) {
+      // Check if hit display time has elapsed
+      const float hitElapsed =
+          pea.hitAnimation->GetCurrentFrameIndex() *
+          (static_cast<float>(m_ShroomBulletHitFrameIntervalMs) / 1000.0F);
+      if (hitElapsed >= kHitDisplayDurationSec) {
+        m_Root.RemoveChild(pea.object);
+        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        continue;
+      }
+    }
+
+    ++i;
+  }
 }
 
 void App::UpdatePeashooterCombat(const float deltaTime) {
@@ -1853,8 +2140,9 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
     }
   }
 
-  constexpr float kPeaSpeedPxPerSec = 0.45F * static_cast<float>(WINDOW_WIDTH);
+  constexpr float kPeaSpeedPxPerSec = 0.225F * static_cast<float>(WINDOW_WIDTH);
   constexpr std::size_t kHitFrameIntervalMs = 50;
+  constexpr float kPuffHitLifetimeSec = 0.2F;
 
   for (std::size_t i = 0; i < m_Peas.size();) {
     auto &pea = m_Peas[i];
@@ -1910,8 +2198,12 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
         pea.object->m_Transform.translation.y =
             (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
 
+        const auto &hitFrames =
+            pea.type == ActivePea::ProjectileType::PUFFSHROOM
+                ? m_ShroomBulletHitFramePaths
+                : m_PeaHitFramePaths;
         auto hitAnim = std::make_shared<Util::Animation>(
-            m_PeaHitFramePaths, true, kHitFrameIntervalMs, false, 0);
+            hitFrames, true, kHitFrameIntervalMs, false, 0);
         pea.object->SetDrawable(hitAnim);
 
         const glm::vec2 peaSize = pea.object->GetScaledSize();
@@ -1923,13 +2215,23 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
 
         pea.hitting = true;
         pea.hitAnimation = hitAnim;
+        pea.hitElapsedSec = 0.0F;
       }
       ++i;
       continue;
     }
 
-    if (pea.hitAnimation != nullptr &&
-        pea.hitAnimation->GetState() == Util::Animation::State::ENDED) {
+    if (pea.hitting) {
+      pea.hitElapsedSec += deltaTime;
+      if (pea.hitElapsedSec >= kPuffHitLifetimeSec ||
+          (pea.hitAnimation != nullptr &&
+           pea.hitAnimation->GetState() == Util::Animation::State::ENDED)) {
+        m_Root.RemoveChild(pea.object);
+        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        continue;
+      }
+    } else if (pea.hitAnimation != nullptr &&
+               pea.hitAnimation->GetState() == Util::Animation::State::ENDED) {
       m_Root.RemoveChild(pea.object);
       m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
       continue;
@@ -1973,6 +2275,13 @@ void App::RemoveDeadPlants() {
     if (peashooter != nullptr && peashooter->IsDead()) {
       m_Root.RemoveChild(peashooter);
       peashooter = nullptr;
+    }
+  }
+
+  for (auto &puff : m_Puffshrooms) {
+    if (puff != nullptr && puff->IsDead()) {
+      m_Root.RemoveChild(puff);
+      puff = nullptr;
     }
   }
 
@@ -2062,6 +2371,8 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
       placed = PlaceSunflowerAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::SUNSHROOM) {
       placed = PlaceSunshroomAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::PUFFSHROOM) {
+      placed = PlacePuffshroomAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
       placed = PlacePeashooterAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::NUT) {
@@ -2260,6 +2571,10 @@ void App::Start() {
   m_UIRoot.AddChild(m_GameOverBanner);
 
   m_PeashooterAttackCooldowns.fill(1.0F);
+  m_PuffshroomAttackCooldowns.fill(1.0F);
+  m_PuffshroomAttackWarmupRemaining.fill(0.0F);
+  m_PuffshroomAttackWarmupRemaining.fill(0.0F);
+  m_PuffshroomAttackCooldowns.fill(1.0F);
 
   m_CameraStage = CameraStage::STAGE1_HOME;
   m_CameraStageElapsed = 0.0F;
@@ -2592,6 +2907,7 @@ void App::ResetLevelRuntimeState() {
   m_Sunflowers.fill(nullptr);
   m_Sunshrooms.fill(nullptr);
   m_Peashooters.fill(nullptr);
+  m_Puffshrooms.fill(nullptr);
   m_Nuts.fill(nullptr);
   m_Peas.clear();
   m_ActiveZombies.clear();
@@ -2622,6 +2938,8 @@ void App::ResetLevelRuntimeState() {
 
   m_SunSystemStarted = false;
   m_SunSpawnCountdown = 0.0F;
+  m_PuffshroomAttackCooldowns.fill(0.0F);
+  m_PuffshroomAttackWarmupRemaining.fill(0.0F);
 }
 
 void App::UpdateGameplay(float deltaTime) {
@@ -2646,6 +2964,7 @@ void App::UpdateGameplay(float deltaTime) {
   UpdateCherryBombs(deltaTime);
   UpdateSunshrooms(dt);
   UpdatePeashooterCombat(dt);
+  UpdatePuffshroomCombat(dt);
 
   // Update plant card cooldowns
   for (auto &card : m_PlantCards) {
