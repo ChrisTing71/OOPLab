@@ -200,6 +200,7 @@ private:
   void ClearSelectedPlantTool();
   void HandleGridClick(float xPercent, float yPercent, bool collectedSun,
                        bool selectedCard);
+  void StartPlantCardCooldown(PlantCardSelection sel);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
   glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
   float GridRowCenterPercent(int row) const;

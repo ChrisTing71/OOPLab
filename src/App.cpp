@@ -1066,13 +1066,7 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
   m_Root.AddChild(sunflower);
   m_Sunlight -= kSunflowerCost;
 
-  // Start cooldown for Sunflower card
-  for (auto &card : m_PlantCards) {
-    if (card.selection == PlantCardSelection::SUNFLOWER) {
-      card.cooldownRemaining = card.cooldownTotal;
-      break;
-    }
-  }
+  // Cooldown handled centrally by StartPlantCardCooldown
 
   return true;
 }
@@ -1097,10 +1091,14 @@ bool App::PlaceSunshroomAtGridCell(const int row, const int column) {
       static_cast<std::size_t>(m_SunshroomInitialFrameIntervalMs),
       ComputePlantTargetHeight());
   sunshroom->m_Transform.translation = localPosition;
+  sunshroom->SetGridRow(row);
 
   m_Sunshrooms[static_cast<std::size_t>(index)] = sunshroom;
   m_Root.AddChild(sunshroom);
   m_Sunlight -= kSunshroomCost;
+
+  // Cooldown handled centrally by StartPlantCardCooldown
+
   return true;
 }
 
@@ -1130,13 +1128,7 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
   m_Root.AddChild(peashooter);
   m_Sunlight -= kPeashooterCost;
 
-  // Start cooldown for Peashooter card
-  for (auto &card : m_PlantCards) {
-    if (card.selection == PlantCardSelection::PEASHOOTER) {
-      card.cooldownRemaining = card.cooldownTotal;
-      break;
-    }
-  }
+  // Cooldown handled centrally by StartPlantCardCooldown
 
   return true;
 }
@@ -1169,13 +1161,7 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
   m_Root.AddChild(nut);
   m_Sunlight -= kNutCost;
 
-  // Start cooldown for Nut card
-  for (auto &card : m_PlantCards) {
-    if (card.selection == PlantCardSelection::NUT) {
-      card.cooldownRemaining = card.cooldownTotal;
-      break;
-    }
-  }
+  // Cooldown handled centrally by StartPlantCardCooldown
 
   return true;
 }
@@ -1208,13 +1194,7 @@ bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
   m_Root.AddChild(cherryBomb);
   m_Sunlight -= kCherryBombCost;
 
-  // Start cooldown for Cherry Bomb card
-  for (auto &card : m_PlantCards) {
-    if (card.selection == PlantCardSelection::CHERRY_BOMB) {
-      card.cooldownRemaining = card.cooldownTotal;
-      break;
-    }
-  }
+  // Cooldown handled centrally by StartPlantCardCooldown
 
   return true;
 }
@@ -2093,12 +2073,22 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
     }
 
     if (placed && m_SelectedPlant != PlantCardSelection::SHOVEL) {
+      StartPlantCardCooldown(m_SelectedPlant);
       ClearSelectedPlantTool();
     }
     return;
   }
 
   m_HasGridHit = false;
+}
+
+void App::StartPlantCardCooldown(PlantCardSelection sel) {
+  for (auto &card : m_PlantCards) {
+    if (card.selection == sel) {
+      card.cooldownRemaining = card.cooldownTotal;
+      break;
+    }
+  }
 }
 
 void App::RemoveSunAt(const std::size_t index) {
