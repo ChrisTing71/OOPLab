@@ -41,6 +41,8 @@ public:
     m_Health = glm::max(0, m_Health - amount);
   }
 
+  virtual void OnProducedSunCollected() {}
+
 private:
   int m_Health = 300;
   int m_GridRow = -1;

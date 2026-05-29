@@ -2,17 +2,22 @@
 #define APP_HPP
 
 #include <random>
+#include <set>
 
 #include "pch.hpp" // IWYU pragma: export
 
 #include "CardSlot.hpp"
 #include "CherryBomb.hpp"
+#include "Fumeshroom.hpp"
 #include "LevelManager.hpp"
 #include "MenuScene.hpp"
 #include "Nut.hpp"
 #include "Peashooter.hpp"
+#include "Plant.hpp"
+#include "Puffshroom.hpp"
 #include "Sun.hpp"
 #include "Sunflower.hpp"
+#include "Sunshroom.hpp"
 #include "Util/Image.hpp"
 #include "Util/Renderer.hpp"
 #include "WaveConfig.hpp"
@@ -49,7 +54,8 @@ public:
 
   struct ActiveSun {
     std::shared_ptr<Sun> object;
-    std::weak_ptr<Sunflower> producer;
+    std::weak_ptr<Plant> producer;
+    int value = 25;
     float aliveSeconds = 0.0F;
     float stoppedSeconds = 0.0F;
     bool collecting = false;
@@ -67,10 +73,25 @@ public:
   };
 
   struct ActivePea {
+    enum class ProjectileType {
+      PEASHOOTER,
+      PUFFSHROOM,
+    };
+
     std::shared_ptr<Util::GameObject> object;
     int row = -1;
     bool hitting = false;
     std::shared_ptr<Util::Animation> hitAnimation = nullptr;
+    ProjectileType type = ProjectileType::PEASHOOTER;
+    float hitElapsedSec = 0.0F;
+  };
+
+  struct ActiveFumeshroomEffect {
+    std::shared_ptr<Util::GameObject> object;
+    int row = -1;
+    float elapsedSec = 0.0F;
+    std::set<Zombie *> damagedZombies;
+    constexpr static float kDurationSec = 1.0F;
   };
 
   struct ActiveZombie {
@@ -101,6 +122,9 @@ public:
   enum class PlantCardSelection {
     NONE,
     SUNFLOWER,
+    SUNSHROOM,
+    PUFFSHROOM,
+    FUMESHROOM,
     PEASHOOTER,
     NUT,
     CHERRY_BOMB,
@@ -134,7 +158,12 @@ private:
                             const std::string &outputPath);
   void UpdateCamera(float deltaTime);
   bool PrepareSunflowerFrames();
+  bool PrepareSunshroomFrames();
   bool PreparePeashooterFrames();
+  bool PreparePuffshroomFrames();
+  bool PrepareFumeshroomFrames();
+  bool PrepareFumeshroomAttackFrames();
+  bool PrepareFumeshroomBulletFrames();
   bool PrepareNutFrames();
   bool PrepareCherryBombFrames();
   bool PrepareCherryBombBlowFrames();
@@ -147,7 +176,10 @@ private:
   bool PreparePlantPlacement(int row, int column, int &index,
                              glm::vec2 &localPosition) const;
   bool PlaceSunflowerAtGridCell(int row, int column);
+  bool PlaceSunshroomAtGridCell(int row, int column);
   bool PlacePeashooterAtGridCell(int row, int column);
+  bool PlacePuffshroomAtGridCell(int row, int column);
+  bool PlaceFumeshroomAtGridCell(int row, int column);
   bool PlaceNutAtGridCell(int row, int column);
   bool PlaceCherryBombAtGridCell(int row, int column);
   bool RemovePlantAtGridCell(int row, int column);
@@ -163,7 +195,10 @@ private:
   float ComputePlantPreviewTargetHeight() const;
   void SpawnFallingSun();
   void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
+  void SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
+                             int sunValue);
   void UpdateSuns(float deltaTime);
+  void UpdateSunshrooms(float deltaTime);
   void PrepareBasicZombieStandPreview();
   void SetupBasicZombieStand();
   void ClearBasicZombieStandPreview();
@@ -183,7 +218,13 @@ private:
   void UpdateLawnMowers(float deltaTime);
   void UpdateCherryBombs(float deltaTime);
   void UpdatePeashooterCombat(float deltaTime);
+  void UpdatePuffshroomCombat(float deltaTime);
+  void UpdateFumeshroomCombat(float deltaTime);
+  bool PrepareShroomBulletFrames();
+  bool PrepareShroomBulletHitFrames();
   void SpawnPeaFromPeashooter(const std::shared_ptr<Peashooter> &peashooter);
+  void SpawnShroomBulletFromPuffshroom(const std::shared_ptr<Puffshroom> &puff);
+  void SpawnFumeshroomAttackEffect(const std::shared_ptr<Fumeshroom> &fume);
   bool HasAliveZombieInRow(int row, float shooterX) const;
   bool TryCollectSunAt(float pixelX, float pixelY);
   void RemoveDeadPlants();
@@ -191,6 +232,7 @@ private:
   void ClearSelectedPlantTool();
   void HandleGridClick(float xPercent, float yPercent, bool collectedSun,
                        bool selectedCard);
+  void StartPlantCardCooldown(PlantCardSelection sel);
   glm::vec2 CardSlotLocalFromSourceCoord(float sourceX, float sourceY) const;
   glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
   float GridRowCenterPercent(int row) const;
@@ -216,6 +258,7 @@ private:
   static constexpr int kGridCellCount = kGridColumns * kGridRows;
 
   static constexpr int kSunflowerCost = 50;
+  static constexpr int kSunshroomCost = 25;
   static constexpr int kPeashooterCost = 100;
   static constexpr int kNutCost = 50;
   static constexpr int kCherryBombCost = 150;
@@ -250,8 +293,20 @@ private:
 
   std::vector<std::string> m_SunflowerFramePaths;
   int m_SunflowerFrameIntervalMs = 100;
+  std::vector<std::string> m_SunshroomInitialFramePaths;
+  int m_SunshroomInitialFrameIntervalMs = 100;
+  std::vector<std::string> m_SunshroomGrownFramePaths;
+  int m_SunshroomGrownFrameIntervalMs = 100;
   std::vector<std::string> m_PeashooterFramePaths;
   int m_PeashooterFrameIntervalMs = 100;
+  std::vector<std::string> m_PuffshroomFramePaths;
+  int m_PuffshroomFrameIntervalMs = 100;
+  std::vector<std::string> m_FumeshroomFramePaths;
+  int m_FumeshroomFrameIntervalMs = 100;
+  std::vector<std::string> m_FumeshroomAttackFramePaths;
+  int m_FumeshroomAttackFrameIntervalMs = 100;
+  std::vector<std::string> m_FumeshroomBulletFramePaths;
+  int m_FumeshroomBulletFrameIntervalMs = 100;
   std::vector<std::string> m_Nut1FramePaths;
   int m_Nut1FrameIntervalMs = 100;
   std::vector<std::string> m_Nut2FramePaths;
@@ -267,14 +322,26 @@ private:
   std::vector<std::string> m_PeashooterAttackFramePaths;
   int m_PeashooterAttackFrameIntervalMs = 100;
   std::array<float, kGridCellCount> m_PeashooterAttackCooldowns{};
+  std::array<float, kGridCellCount> m_PuffshroomAttackCooldowns{};
+  std::array<float, kGridCellCount> m_PuffshroomAttackWarmupRemaining{};
+  std::array<float, kGridCellCount> m_FumeshroomAttackCooldowns{};
+  std::array<float, kGridCellCount> m_FumeshroomAttackWarmupRemaining{};
+  std::vector<std::string> m_ShroomBulletFramePaths;
+  int m_ShroomBulletFrameIntervalMs = 100;
+  std::vector<std::string> m_ShroomBulletHitFramePaths;
+  int m_ShroomBulletHitFrameIntervalMs = 100;
   std::vector<ActivePea> m_Peas;
+  std::vector<ActiveFumeshroomEffect> m_FumeshroomEffects;
   std::vector<std::string> m_PeaHitFramePaths = {
-      "Resources/gameplay/plants/peashooter_bullet/hit1.png",
-      "Resources/gameplay/plants/peashooter_bullet/hit2.png",
-      "Resources/gameplay/plants/peashooter_bullet/hit3.png",
-      "Resources/gameplay/plants/peashooter_bullet/hit4.png",
+      "Resources/gameplay/plants/peashooter/peashooter_bullet/hit1.png",
+      "Resources/gameplay/plants/peashooter/peashooter_bullet/hit2.png",
+      "Resources/gameplay/plants/peashooter/peashooter_bullet/hit3.png",
+      "Resources/gameplay/plants/peashooter/peashooter_bullet/hit4.png",
   };
   std::array<std::shared_ptr<Sunflower>, kGridCellCount> m_Sunflowers{};
+  std::array<std::shared_ptr<Sunshroom>, kGridCellCount> m_Sunshrooms{};
+  std::array<std::shared_ptr<Puffshroom>, kGridCellCount> m_Puffshrooms{};
+  std::array<std::shared_ptr<Fumeshroom>, kGridCellCount> m_Fumeshrooms{};
   std::array<std::shared_ptr<Peashooter>, kGridCellCount> m_Peashooters{};
   std::array<std::shared_ptr<Nut>, kGridCellCount> m_Nuts{};
   std::array<std::shared_ptr<CherryBomb>, kGridCellCount> m_CherryBombs{};
@@ -345,7 +412,13 @@ private:
   std::shared_ptr<CardSlot> m_CardSlot = std::make_shared<CardSlot>();
   std::shared_ptr<Util::GameObject> m_SunflowerCard =
       std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_SunshroomCard =
+      std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_PeashooterCard =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_PuffshroomCard =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_FumeshroomCard =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_NutCard =
       std::make_shared<Util::GameObject>();
@@ -353,7 +426,13 @@ private:
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_SunflowerCardGrayMask =
       std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_SunshroomCardGrayMask =
+      std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_PeashooterCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_PuffshroomCardGrayMask =
+      std::make_shared<Util::GameObject>();
+  std::shared_ptr<Util::GameObject> m_FumeshroomCardGrayMask =
       std::make_shared<Util::GameObject>();
   std::shared_ptr<Util::GameObject> m_NutCardGrayMask =
       std::make_shared<Util::GameObject>();
