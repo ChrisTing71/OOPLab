@@ -125,7 +125,9 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
          m_Sunshrooms[static_cast<std::size_t>(index)] != nullptr ||
+         m_Puffshrooms[static_cast<std::size_t>(index)] != nullptr ||
          m_Peashooters[static_cast<std::size_t>(index)] != nullptr ||
+         m_Fumeshrooms[static_cast<std::size_t>(index)] != nullptr ||
          m_Nuts[static_cast<std::size_t>(index)] != nullptr ||
          m_CherryBombs[static_cast<std::size_t>(index)] != nullptr;
 }
@@ -1375,6 +1377,12 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
 
   auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
   removePlant(peashooter);
+
+  auto &puff = m_Puffshrooms[static_cast<std::size_t>(index)];
+  removePlant(puff);
+
+  auto &fume = m_Fumeshrooms[static_cast<std::size_t>(index)];
+  removePlant(fume);
 
   auto &nut = m_Nuts[static_cast<std::size_t>(index)];
   removePlant(nut);
