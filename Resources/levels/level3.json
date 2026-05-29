@@ -1,9 +1,9 @@
 {
-    "levelId": 3,
-    "name": "Level 3 - Endless Waves",
-    "description": "Waves keep coming. Survive and thrive!",
-    "sceneType": "night",
-    "initialSunAmount": 50,
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
+    "sceneType": "day",
+    "initialSunAmount": 100,
     "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
@@ -13,38 +13,39 @@
             "startDelaySec": 30.0,
             "repeat": 1,
             "zombiesPerWave": 1,
-            "spawnIntervalSec": 0.0,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 12.0,
-            "repeat": 4,
+            "startDelaySec": 15.0,
+            "repeat": 2,
             "zombiesPerWave": 3,
-            "spawnIntervalSec": 1.2,
-            "waveIntervalSec": 8.0,
+            "spawnIntervalSec": 3.0,
+            "waveIntervalSec": 12.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 10.0,
+            "startDelaySec": 20.0,
             "repeat": 1,
-            "zombiesPerWave": 6,
-            "spawnIntervalSec": 2.0,
+            "zombiesPerWave": 4,
+            "spawnIntervalSec": 5.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "conehead"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "sunflower"
-        ],
-        "sunAmountReward": 100
-    }
+    ]
 }
