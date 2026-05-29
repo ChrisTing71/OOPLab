@@ -231,6 +231,29 @@ bool App::PrepareShroomBulletHitFrames() {
       m_ShroomBulletHitFrameIntervalMs);
 }
 
+bool App::PrepareFumeshroomFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/fumeshroom/fumeshroom.gif",
+      "Resources/gameplay/plants/fumeshroom/fumeshroom_frames",
+      "fumeshroom_frame", m_FumeshroomFramePaths, m_FumeshroomFrameIntervalMs);
+}
+
+bool App::PrepareFumeshroomAttackFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/fumeshroom/fumeshroom_attack.gif",
+      "Resources/gameplay/plants/fumeshroom/fumeshroom_attack_frames",
+      "fumeshroom_attack_frame", m_FumeshroomAttackFramePaths,
+      m_FumeshroomAttackFrameIntervalMs);
+}
+
+bool App::PrepareFumeshroomBulletFrames() {
+  return PrepareFramesFromGif(
+      "Resources/gameplay/plants/fumeshroom/bullet.gif",
+      "Resources/gameplay/plants/fumeshroom/bullet_frames",
+      "fumeshroom_bullet_frame", m_FumeshroomBulletFramePaths,
+      m_FumeshroomBulletFrameIntervalMs);
+}
+
 bool App::PrepareNutFrames() {
   const bool ok1 = PrepareFramesFromGif(
       "Resources/gameplay/plants/wall_nut/nut1/Mobile - Plants vs. Zombies 2 - "
@@ -791,6 +814,12 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
     }
   }
 
+  for (const auto &fume : m_Fumeshrooms) {
+    if (fume != nullptr && !fume->IsDead()) {
+      plants.push_back(fume);
+    }
+  }
+
   for (const auto &peashooter : m_Peashooters) {
     if (peashooter != nullptr && !peashooter->IsDead()) {
       plants.push_back(peashooter);
@@ -816,7 +845,9 @@ void App::SetupPlantCards() {
   if (!PrepareSunflowerFrames() || !PrepareSunshroomFrames() ||
       !PreparePeashooterFrames() || !PrepareNutFrames() ||
       !PrepareCherryBombFrames() || !PreparePuffshroomFrames() ||
-      !PrepareShroomBulletFrames() || !PrepareShroomBulletHitFrames()) {
+      !PrepareFumeshroomFrames() || !PrepareFumeshroomAttackFrames() ||
+      !PrepareFumeshroomBulletFrames() || !PrepareShroomBulletFrames() ||
+      !PrepareShroomBulletHitFrames()) {
     return;
   }
 
@@ -848,6 +879,16 @@ void App::SetupPlantCards() {
           nullptr, // disabledImage
           "Resources/ui/cards/puffshroom.png",
           "Resources/ui/cards/generated/puffshroom_gray.png",
+          0.0F, // cooldownRemaining
+          7.5F, // cooldownTotal
+      },
+      {
+          PlantCardSelection::FUMESHROOM, 0, m_FumeshroomCard,
+          m_FumeshroomCardGrayMask,
+          nullptr, // normalImage
+          nullptr, // disabledImage
+          "Resources/ui/cards/fumeshroom.png",
+          "Resources/ui/cards/generated/fumeshroom_gray.png",
           0.0F, // cooldownRemaining
           7.5F, // cooldownTotal
       },
@@ -1015,6 +1056,8 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
           std::make_shared<Util::Image>(m_SunshroomInitialFramePaths.front());
     } else if (card.selection == PlantCardSelection::PUFFSHROOM) {
       preview = std::make_shared<Util::Image>(m_PuffshroomFramePaths.front());
+    } else if (card.selection == PlantCardSelection::FUMESHROOM) {
+      preview = std::make_shared<Util::Image>(m_FumeshroomFramePaths.front());
     } else if (card.selection == PlantCardSelection::PEASHOOTER) {
       preview = std::make_shared<Util::Image>(m_PeashooterFramePaths.front());
     } else if (card.selection == PlantCardSelection::NUT) {
@@ -1204,6 +1247,40 @@ bool App::PlacePuffshroomAtGridCell(const int row, const int column) {
 
   m_Puffshrooms[static_cast<std::size_t>(index)] = puff;
   m_Root.AddChild(puff);
+  // cost 0: no sunlight deduction
+
+  return true;
+}
+
+bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
+  if (!PrepareFumeshroomFrames() || !PrepareFumeshroomAttackFrames()) {
+    return false;
+  }
+
+  // Fumeshroom is free (cost 0) but ensure PreparePlantPlacement
+  int index = 0;
+  glm::vec2 localPosition = {0.0F, 0.0F};
+  if (!PreparePlantPlacement(row, column, index, localPosition)) {
+    return false;
+  }
+
+  auto fume = std::make_shared<Fumeshroom>(
+      m_FumeshroomFramePaths,
+      static_cast<std::size_t>(m_FumeshroomFrameIntervalMs),
+      ComputePlantTargetHeight());
+  fume->m_Transform.translation = localPosition;
+
+  // Shift fumeshroom slightly right inside its cell.
+  const float cellWidthPercent =
+      (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
+  const float rightOffsetPx =
+      (cellWidthPercent * 0.10F / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+  fume->m_Transform.translation.x += rightOffsetPx;
+
+  fume->SetGridRow(row);
+
+  m_Fumeshrooms[static_cast<std::size_t>(index)] = fume;
+  m_Root.AddChild(fume);
   // cost 0: no sunlight deduction
 
   return true;
@@ -1916,8 +1993,8 @@ void App::SpawnShroomBulletFromPuffshroom(
   bullet->m_Transform.translation.x += shooterSize.x * 0.28F;
   const float cellHeightPercent =
       (kGridMaxYPercent - kGridMinYPercent) / static_cast<float>(kGridRows);
-  const float upwardOffsetPx =
-      -((cellHeightPercent * 0.2F / 100.0F) * static_cast<float>(WINDOW_HEIGHT));
+  const float upwardOffsetPx = -((cellHeightPercent * 0.2F / 100.0F) *
+                                 static_cast<float>(WINDOW_HEIGHT));
   bullet->m_Transform.translation.y += upwardOffsetPx;
 
   ActivePea activePea;
@@ -1926,6 +2003,52 @@ void App::SpawnShroomBulletFromPuffshroom(
   activePea.type = ActivePea::ProjectileType::PUFFSHROOM;
   m_Root.AddChild(bullet);
   m_Peas.push_back(activePea);
+}
+
+void App::SpawnFumeshroomAttackEffect(const std::shared_ptr<Fumeshroom> &fume) {
+  if (fume == nullptr) {
+    return;
+  }
+
+  // Start attack animation on fumeshroom
+  fume->StartAttack(
+      m_FumeshroomAttackFramePaths,
+      static_cast<std::size_t>(m_FumeshroomAttackFrameIntervalMs));
+
+  // Create attack effect object that covers 4 cells to the right
+  auto effect = std::make_shared<Util::GameObject>();
+  auto effectAnim = std::make_shared<Util::Animation>(
+      m_FumeshroomBulletFramePaths, true,
+      static_cast<std::size_t>(m_FumeshroomBulletFrameIntervalMs), false, 0);
+  effect->SetDrawable(effectAnim);
+  effect->SetZIndex(1.1F);
+
+  // Scale effect to cover 4-cell width with 0.8x scale factor
+  const float cellWidthPercent =
+      (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
+  const float cellWidthPx =
+      (cellWidthPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+  const float targetHeight = ComputePlantTargetHeight();
+  const glm::vec2 effectNaturalSize = effectAnim->GetSize();
+  constexpr float kEffectScale = 0.8F;
+  if (effectNaturalSize.x > 0.0F && effectNaturalSize.y > 0.0F) {
+    const float scaleX =
+        (cellWidthPx * 4.0F / effectNaturalSize.x) * kEffectScale;
+    const float scaleY = (targetHeight / effectNaturalSize.y) * kEffectScale;
+    effect->m_Transform.scale = {scaleX, scaleY};
+  }
+
+  // Position effect centered on the four cells to the right of fumeshroom.
+  effect->m_Transform.translation = fume->m_Transform.translation;
+  effect->m_Transform.translation.x += cellWidthPx * 2.0F;
+
+  ActiveFumeshroomEffect activeEffect;
+  activeEffect.object = effect;
+  activeEffect.row = fume->GetGridRow();
+  activeEffect.elapsedSec = 0.0F;
+  activeEffect.damagedZombies.clear(); // Explicitly initialize empty set
+  m_Root.AddChild(effect);
+  m_FumeshroomEffects.push_back(activeEffect);
 }
 
 void App::UpdatePuffshroomCombat(const float deltaTime) {
@@ -2094,6 +2217,132 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
         m_Root.RemoveChild(pea.object);
         m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
         continue;
+      }
+    }
+
+    ++i;
+  }
+}
+
+void App::UpdateFumeshroomCombat(const float deltaTime) {
+  if (deltaTime <= 0.0F) {
+    return;
+  }
+
+  if (!PrepareFumeshroomBulletFrames()) {
+    return;
+  }
+
+  constexpr float kShootIntervalSec = 1.0F;
+  constexpr std::size_t kShootFrameIndex = 16;
+  const float kAttackWarmupSec =
+      static_cast<float>(kShootFrameIndex * m_PeashooterAttackFrameIntervalMs) /
+      1000.0F;
+  // Compute cell width in pixels for 4-cell range
+  const float cellWidthPercent =
+      (kGridMaxXPercent - kGridMinXPercent) / static_cast<float>(kGridColumns);
+  const float cellWidthPx =
+      (cellWidthPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
+
+  // Update attack cooldowns and spawn attack effects
+  for (int index = 0; index < kGridCellCount; ++index) {
+    auto &fume = m_Fumeshrooms[static_cast<std::size_t>(index)];
+    if (fume == nullptr || fume->IsDead()) {
+      continue;
+    }
+
+    // Update Fumeshroom's attack state (will auto shoot when appropriate)
+    fume->UpdateAttackStateAndCheckShoot();
+
+    const int row = index / kGridColumns;
+    const float fumeX = fume->m_Transform.translation.x;
+
+    // Find zombies from the plant's right edge to four cells to the right.
+    bool hasZombieInRange = false;
+    const float leftLimit = fumeX;
+    const float rightLimit = fumeX + cellWidthPx * 4.5F;
+    for (const auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+        continue;
+      }
+      if (zombie.object->GetGridRow() != row) {
+        continue;
+      }
+      const float zx = zombie.object->m_Transform.translation.x;
+      if (zx >= leftLimit && zx <= rightLimit) {
+        hasZombieInRange = true;
+        break;
+      }
+    }
+
+    auto &cooldown =
+        m_FumeshroomAttackCooldowns[static_cast<std::size_t>(index)];
+    auto &warmup =
+        m_FumeshroomAttackWarmupRemaining[static_cast<std::size_t>(index)];
+    if (!hasZombieInRange) {
+      cooldown = kShootIntervalSec;
+      warmup = 0.0F;
+      continue;
+    }
+
+    cooldown -= deltaTime;
+    if (cooldown > 0.0F) {
+      warmup = 0.0F;
+      continue;
+    }
+
+    if (warmup <= 0.0F) {
+      warmup = kAttackWarmupSec;
+      continue;
+    }
+
+    warmup -= deltaTime;
+    if (warmup <= 0.0F) {
+      SpawnFumeshroomAttackEffect(fume);
+      cooldown = kShootIntervalSec;
+      warmup = 0.0F;
+    }
+  }
+
+  // Update attack effect display and damage handling
+  for (std::size_t i = 0; i < m_FumeshroomEffects.size();) {
+    auto &effect = m_FumeshroomEffects[i];
+    effect.elapsedSec += deltaTime;
+
+    if (effect.elapsedSec >= ActiveFumeshroomEffect::kDurationSec) {
+      m_Root.RemoveChild(effect.object);
+      m_FumeshroomEffects.erase(m_FumeshroomEffects.begin() +
+                                static_cast<long>(i));
+      continue;
+    }
+
+    // Check collision with zombies in the same row, damage each only once
+    for (auto &zombie : m_ActiveZombies) {
+      if (zombie.object == nullptr || zombie.object->IsDestroyed()) {
+        continue;
+      }
+      if (zombie.object->GetGridRow() != effect.row) {
+        continue;
+      }
+
+      // Skip if already damaged by this effect
+      if (effect.damagedZombies.count(zombie.object.get()) > 0) {
+        continue;
+      }
+
+      const auto zombieType =
+          (dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr)
+              ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+              : CollisionSystem::CollisionBoxType::BasicZombie;
+
+      const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
+          effect.row, zombie.object->GetGridRow(), *effect.object,
+          *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
+          zombieType);
+
+      if (isHit) {
+        zombie.object->TakeDamage(20);
+        effect.damagedZombies.insert(zombie.object.get());
       }
     }
 
@@ -2285,6 +2534,13 @@ void App::RemoveDeadPlants() {
     }
   }
 
+  for (auto &fume : m_Fumeshrooms) {
+    if (fume != nullptr && fume->IsDead()) {
+      m_Root.RemoveChild(fume);
+      fume = nullptr;
+    }
+  }
+
   for (auto &nut : m_Nuts) {
     if (nut != nullptr && nut->IsDead()) {
       m_Root.RemoveChild(nut);
@@ -2373,6 +2629,8 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
       placed = PlaceSunshroomAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::PUFFSHROOM) {
       placed = PlacePuffshroomAtGridCell(row, column);
+    } else if (m_SelectedPlant == PlantCardSelection::FUMESHROOM) {
+      placed = PlaceFumeshroomAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::PEASHOOTER) {
       placed = PlacePeashooterAtGridCell(row, column);
     } else if (m_SelectedPlant == PlantCardSelection::NUT) {
@@ -2575,6 +2833,8 @@ void App::Start() {
   m_PuffshroomAttackWarmupRemaining.fill(0.0F);
   m_PuffshroomAttackWarmupRemaining.fill(0.0F);
   m_PuffshroomAttackCooldowns.fill(1.0F);
+  m_FumeshroomAttackCooldowns.fill(1.0F);
+  m_FumeshroomAttackWarmupRemaining.fill(0.0F);
 
   m_CameraStage = CameraStage::STAGE1_HOME;
   m_CameraStageElapsed = 0.0F;
@@ -2908,8 +3168,10 @@ void App::ResetLevelRuntimeState() {
   m_Sunshrooms.fill(nullptr);
   m_Peashooters.fill(nullptr);
   m_Puffshrooms.fill(nullptr);
+  m_Fumeshrooms.fill(nullptr);
   m_Nuts.fill(nullptr);
   m_Peas.clear();
+  m_FumeshroomEffects.clear();
   m_ActiveZombies.clear();
   m_Suns.clear();
   m_LawnMowers.fill({});
@@ -2965,6 +3227,7 @@ void App::UpdateGameplay(float deltaTime) {
   UpdateSunshrooms(dt);
   UpdatePeashooterCombat(dt);
   UpdatePuffshroomCombat(dt);
+  UpdateFumeshroomCombat(dt);
 
   // Update plant card cooldowns
   for (auto &card : m_PlantCards) {
