@@ -885,7 +885,7 @@ void App::SetupPlantCards() {
           7.5F, // cooldownTotal
       },
       {
-          PlantCardSelection::FUMESHROOM, 0, m_FumeshroomCard,
+          PlantCardSelection::FUMESHROOM, kFumeshroomCost, m_FumeshroomCard,
           m_FumeshroomCardGrayMask,
           nullptr, // normalImage
           nullptr, // disabledImage
@@ -1259,7 +1259,10 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
     return false;
   }
 
-  // Fumeshroom is free (cost 0) but ensure PreparePlantPlacement
+  if (m_Sunlight < kFumeshroomCost) {
+    return false;
+  }
+
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
   if (!PreparePlantPlacement(row, column, index, localPosition)) {
@@ -1283,7 +1286,7 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
 
   m_Fumeshrooms[static_cast<std::size_t>(index)] = fume;
   m_Root.AddChild(fume);
-  // cost 0: no sunlight deduction
+  m_Sunlight -= kFumeshroomCost;
 
   return true;
 }
