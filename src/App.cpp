@@ -1933,7 +1933,15 @@ bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
     if (zombie.object->GetGridRow() != row) {
       continue;
     }
-    if (zombie.object->m_Transform.translation.x > shooterX) {
+
+    // Use collision box right boundary instead of center point
+    const auto zombieType = ZombieCollisionBoxHelper::GetZombieCollisionBoxType(
+        *dynamic_cast<Zombie *>(zombie.object.get()));
+    const auto bounds =
+        CollisionSystem::GetCollisionBoxBounds(*zombie.object, zombieType);
+
+    // Check if zombie's collision box right boundary is to the right of shooter
+    if (bounds.maxX > shooterX) {
       return true;
     }
   }
