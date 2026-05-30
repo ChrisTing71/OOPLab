@@ -125,7 +125,9 @@ bool App::PrepareGrayCardImage(const std::string &sourcePath,
 bool App::IsCellOccupied(const int index) const {
   return m_Sunflowers[static_cast<std::size_t>(index)] != nullptr ||
          m_Sunshrooms[static_cast<std::size_t>(index)] != nullptr ||
+         m_Puffshrooms[static_cast<std::size_t>(index)] != nullptr ||
          m_Peashooters[static_cast<std::size_t>(index)] != nullptr ||
+         m_Fumeshrooms[static_cast<std::size_t>(index)] != nullptr ||
          m_Nuts[static_cast<std::size_t>(index)] != nullptr ||
          m_CherryBombs[static_cast<std::size_t>(index)] != nullptr;
 }
@@ -883,7 +885,7 @@ void App::SetupPlantCards() {
           7.5F, // cooldownTotal
       },
       {
-          PlantCardSelection::FUMESHROOM, 0, m_FumeshroomCard,
+          PlantCardSelection::FUMESHROOM, kFumeshroomCost, m_FumeshroomCard,
           m_FumeshroomCardGrayMask,
           nullptr, // normalImage
           nullptr, // disabledImage
@@ -1257,7 +1259,10 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
     return false;
   }
 
-  // Fumeshroom is free (cost 0) but ensure PreparePlantPlacement
+  if (m_Sunlight < kFumeshroomCost) {
+    return false;
+  }
+
   int index = 0;
   glm::vec2 localPosition = {0.0F, 0.0F};
   if (!PreparePlantPlacement(row, column, index, localPosition)) {
@@ -1281,7 +1286,7 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
 
   m_Fumeshrooms[static_cast<std::size_t>(index)] = fume;
   m_Root.AddChild(fume);
-  // cost 0: no sunlight deduction
+  m_Sunlight -= kFumeshroomCost;
 
   return true;
 }
@@ -1375,6 +1380,12 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
 
   auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
   removePlant(peashooter);
+
+  auto &puff = m_Puffshrooms[static_cast<std::size_t>(index)];
+  removePlant(puff);
+
+  auto &fume = m_Fumeshrooms[static_cast<std::size_t>(index)];
+  removePlant(fume);
 
   auto &nut = m_Nuts[static_cast<std::size_t>(index)];
   removePlant(nut);
@@ -1925,7 +1936,15 @@ bool App::HasAliveZombieInRow(const int row, const float shooterX) const {
     if (zombie.object->GetGridRow() != row) {
       continue;
     }
-    if (zombie.object->m_Transform.translation.x > shooterX) {
+
+    // Use collision box right boundary instead of center point
+    const auto zombieType = ZombieCollisionBoxHelper::GetZombieCollisionBoxType(
+        *dynamic_cast<Zombie *>(zombie.object.get()));
+    const auto bounds =
+        CollisionSystem::GetCollisionBoxBounds(*zombie.object, zombieType);
+
+    // Check if zombie's collision box right boundary is to the right of shooter
+    if (bounds.maxX > shooterX) {
       return true;
     }
   }

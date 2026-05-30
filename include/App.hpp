@@ -259,6 +259,7 @@ private:
 
   static constexpr int kSunflowerCost = 50;
   static constexpr int kSunshroomCost = 25;
+  static constexpr int kFumeshroomCost = 75;
   static constexpr int kPeashooterCost = 100;
   static constexpr int kNutCost = 50;
   static constexpr int kCherryBombCost = 150;
