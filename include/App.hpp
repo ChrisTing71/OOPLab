@@ -229,6 +229,7 @@ private:
   bool TryCollectSunAt(float pixelX, float pixelY);
   void RemoveDeadPlants();
   void UpdatePlantCardUIState();
+  void DrawGameplayCheatToggle();
   void ClearSelectedPlantTool();
   void HandleGridClick(float xPercent, float yPercent, bool collectedSun,
                        bool selectedCard);
@@ -451,6 +452,7 @@ private:
       std::make_shared<Util::GameObject>();
   std::vector<PlantCardUI> m_PlantCards;
 
+  bool m_CheatEnabled = false;
   PlantCardSelection m_SelectedPlant = PlantCardSelection::NONE;
   Util::Renderer m_UIRoot;
 
