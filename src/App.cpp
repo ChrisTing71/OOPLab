@@ -1042,10 +1042,10 @@ bool App::TrySelectPlantCardAt(const float pixelX, const float pixelY) {
       continue;
     }
     // Check if card is in cooldown
-    if (card.cooldownRemaining > 0.0F) {
+    if (!m_CheatEnabled && card.cooldownRemaining > 0.0F) {
       return false;
     }
-    if (m_Sunlight < card.cost) {
+    if (!m_CheatEnabled && m_Sunlight < card.cost) {
       return false;
     }
 
@@ -1132,7 +1132,7 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kSunflowerCost) {
+  if (!m_CheatEnabled && m_Sunlight < kSunflowerCost) {
     return false;
   }
 
@@ -1151,7 +1151,9 @@ bool App::PlaceSunflowerAtGridCell(const int row, const int column) {
 
   m_Sunflowers[static_cast<std::size_t>(index)] = sunflower;
   m_Root.AddChild(sunflower);
-  m_Sunlight -= kSunflowerCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kSunflowerCost;
+  }
 
   // Cooldown handled centrally by StartPlantCardCooldown
 
@@ -1163,7 +1165,7 @@ bool App::PlaceSunshroomAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kSunshroomCost) {
+  if (!m_CheatEnabled && m_Sunlight < kSunshroomCost) {
     return false;
   }
 
@@ -1182,7 +1184,9 @@ bool App::PlaceSunshroomAtGridCell(const int row, const int column) {
 
   m_Sunshrooms[static_cast<std::size_t>(index)] = sunshroom;
   m_Root.AddChild(sunshroom);
-  m_Sunlight -= kSunshroomCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kSunshroomCost;
+  }
 
   // Cooldown handled centrally by StartPlantCardCooldown
 
@@ -1194,7 +1198,7 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kPeashooterCost) {
+  if (!m_CheatEnabled && m_Sunlight < kPeashooterCost) {
     return false;
   }
 
@@ -1213,7 +1217,9 @@ bool App::PlacePeashooterAtGridCell(const int row, const int column) {
 
   m_Peashooters[static_cast<std::size_t>(index)] = peashooter;
   m_Root.AddChild(peashooter);
-  m_Sunlight -= kPeashooterCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kPeashooterCost;
+  }
 
   // Cooldown handled centrally by StartPlantCardCooldown
 
@@ -1259,7 +1265,7 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kFumeshroomCost) {
+  if (!m_CheatEnabled && m_Sunlight < kFumeshroomCost) {
     return false;
   }
 
@@ -1286,7 +1292,9 @@ bool App::PlaceFumeshroomAtGridCell(const int row, const int column) {
 
   m_Fumeshrooms[static_cast<std::size_t>(index)] = fume;
   m_Root.AddChild(fume);
-  m_Sunlight -= kFumeshroomCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kFumeshroomCost;
+  }
 
   return true;
 }
@@ -1296,7 +1304,7 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kNutCost) {
+  if (!m_CheatEnabled && m_Sunlight < kNutCost) {
     return false;
   }
 
@@ -1317,7 +1325,9 @@ bool App::PlaceNutAtGridCell(const int row, const int column) {
 
   m_Nuts[static_cast<std::size_t>(index)] = nut;
   m_Root.AddChild(nut);
-  m_Sunlight -= kNutCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kNutCost;
+  }
 
   // Cooldown handled centrally by StartPlantCardCooldown
 
@@ -1329,7 +1339,7 @@ bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
     return false;
   }
 
-  if (m_Sunlight < kCherryBombCost) {
+  if (!m_CheatEnabled && m_Sunlight < kCherryBombCost) {
     return false;
   }
 
@@ -1350,7 +1360,9 @@ bool App::PlaceCherryBombAtGridCell(const int row, const int column) {
 
   m_CherryBombs[static_cast<std::size_t>(index)] = cherryBomb;
   m_Root.AddChild(cherryBomb);
-  m_Sunlight -= kCherryBombCost;
+  if (!m_CheatEnabled) {
+    m_Sunlight -= kCherryBombCost;
+  }
 
   // Cooldown handled centrally by StartPlantCardCooldown
 
@@ -2592,8 +2604,8 @@ void App::UpdatePlantCardUIState() {
   for (auto &card : m_PlantCards) {
     card.normal->SetVisible(true);
 
-    const bool isInCooldown = card.cooldownRemaining > 0.0F;
-    const bool insufficientSun = m_Sunlight < card.cost;
+    const bool isInCooldown = !m_CheatEnabled && card.cooldownRemaining > 0.0F;
+    const bool insufficientSun = !m_CheatEnabled && m_Sunlight < card.cost;
     const bool shouldShowDisabled = insufficientSun || isInCooldown;
 
     card.disabled->SetVisible(shouldShowDisabled);
@@ -2614,6 +2626,29 @@ void App::UpdatePlantCardUIState() {
   }
   m_ShovelShell->SetVisible(true);
   m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
+}
+
+void App::DrawGameplayCheatToggle() {
+  if (m_CurrentState != State::PLAYING ||
+      m_CameraStage != CameraStage::FINISHED) {
+    return;
+  }
+
+  ImGui::SetNextWindowPos(ImVec2(12.0F, 12.0F), ImGuiCond_Always);
+  ImGui::SetNextWindowBgAlpha(0.55F);
+  constexpr ImGuiWindowFlags kWindowFlags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+
+  ImGui::Begin("Cheat Toggle", nullptr, kWindowFlags);
+  if (ImGui::Checkbox("Unlimited plants", &m_CheatEnabled) && m_CheatEnabled) {
+    for (auto &card : m_PlantCards) {
+      card.cooldownRemaining = 0.0F;
+    }
+  }
+  ImGui::TextDisabled("No cooldown, no sun cost");
+  ImGui::End();
 }
 
 void App::ClearSelectedPlantTool() {
@@ -2673,6 +2708,10 @@ void App::HandleGridClick(const float xPercent, const float yPercent,
 }
 
 void App::StartPlantCardCooldown(PlantCardSelection sel) {
+  if (m_CheatEnabled) {
+    return;
+  }
+
   for (auto &card : m_PlantCards) {
     if (card.selection == sel) {
       card.cooldownRemaining = card.cooldownTotal;
@@ -3229,6 +3268,8 @@ void App::UpdateGameplay(float deltaTime) {
   const float dt = deltaTime;
 
   UpdateBannerState(dt);
+  DrawGameplayCheatToggle();
+  const bool uiCapturesMouse = ImGui::GetIO().WantCaptureMouse;
 
   // If level failed, just render the frozen scene without updating game logic
   if (m_CurrentState == State::LEVEL_FAILED) {
@@ -3251,11 +3292,17 @@ void App::UpdateGameplay(float deltaTime) {
   UpdateFumeshroomCombat(dt);
 
   // Update plant card cooldowns
-  for (auto &card : m_PlantCards) {
-    if (card.cooldownRemaining > 0.0F) {
-      card.cooldownRemaining -= dt;
-      if (card.cooldownRemaining < 0.0F) {
-        card.cooldownRemaining = 0.0F;
+  if (m_CheatEnabled) {
+    for (auto &card : m_PlantCards) {
+      card.cooldownRemaining = 0.0F;
+    }
+  } else {
+    for (auto &card : m_PlantCards) {
+      if (card.cooldownRemaining > 0.0F) {
+        card.cooldownRemaining -= dt;
+        if (card.cooldownRemaining < 0.0F) {
+          card.cooldownRemaining = 0.0F;
+        }
       }
     }
   }
@@ -3291,7 +3338,7 @@ void App::UpdateGameplay(float deltaTime) {
     ClearSelectedPlantTool();
   }
 
-  if (Util::Input::IsKeyPressed(Util::Keycode::MOUSE_LB)) {
+  if (!uiCapturesMouse && Util::Input::IsKeyPressed(Util::Keycode::MOUSE_LB)) {
     const glm::vec2 cursor = Util::Input::GetCursorPosition();
     const float pixelX = cursor.x + static_cast<float>(WINDOW_WIDTH) * 0.5F;
     const float pixelY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - cursor.y;
