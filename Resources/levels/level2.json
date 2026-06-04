@@ -1,50 +1,58 @@
 {
-    "levelId": 2,
-    "name": "Level 2 - Growing Threat",
-    "description": "More zombies are coming. Plant a defense strategy.",
+    "levelId": 1,
+    "name": "Level 1 - Beginning",
+    "description": "Learn the basics. Defend against the first wave of zombies.",
     "sceneType": "day",
-    "initialSunAmount": 100,
+    "initialSunAmount": 50,
     "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 35.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
             "zombiesPerWave": 1,
-            "spawnIntervalSec": 1.5,
+            "spawnIntervalSec": 0.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic"
+            ],
+            "randomOrder": false
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 15.0,
-            "repeat": 3,
-            "zombiesPerWave": 3,
-            "spawnIntervalSec": 1.5,
-            "waveIntervalSec": 10.0,
-            "waitUntilClear": false,
-            "zombieType": "basic"
+            "startDelaySec": 18.0,
+            "repeat": 1,
+            "zombiesPerWave": 4,
+            "spawnIntervalSec": 5.0,
+            "waveIntervalSec": 20.0,
+            "waitUntilClear": true,
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "basic"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 15.0,
+            "startDelaySec": 20.0,
             "repeat": 1,
             "zombiesPerWave": 5,
-            "spawnIntervalSec": 2.5,
+            "spawnIntervalSec": 5.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "basic",
+                "basic"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "nut"
-        ],
-        "sunAmountReward": 75
-    }
+    ]
 }

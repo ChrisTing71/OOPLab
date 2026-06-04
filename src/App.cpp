@@ -2386,7 +2386,7 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
     return;
   }
 
-  constexpr float kShootIntervalSec = 1.0F;
+  constexpr float kShootIntervalSec = 0.8F;
   for (int index = 0; index < kGridCellCount; ++index) {
     auto &peashooter = m_Peashooters[static_cast<std::size_t>(index)];
     if (peashooter == nullptr || peashooter->IsDead()) {
@@ -2399,9 +2399,12 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
     auto &cooldown =
         m_PeashooterAttackCooldowns[static_cast<std::size_t>(index)];
 
+    cooldown -= deltaTime;
+
     if (peashooter->IsAttacking()) {
       if (peashooter->UpdateAttackStateAndCheckShoot()) {
         SpawnPeaFromPeashooter(peashooter);
+        cooldown = kShootIntervalSec;
       }
       continue;
     }
@@ -2411,12 +2414,11 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
       continue;
     }
 
-    cooldown -= deltaTime;
     if (cooldown <= 0.0F &&
         peashooter->StartAttack(
             m_PeashooterAttackFramePaths,
             static_cast<std::size_t>(m_PeashooterAttackFrameIntervalMs))) {
-      cooldown = kShootIntervalSec;
+      cooldown = 0.0F;
     }
   }
 

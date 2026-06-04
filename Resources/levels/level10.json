@@ -1,50 +1,53 @@
 {
-    "levelId": 10,
-    "name": "Level 10 - Endless Mode",
-    "description": "The ultimate challenge. Can you survive forever?",
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
     "sceneType": "night",
-    "initialSunAmount": 200,
-    "difficultyBadge": "Hard",
+    "initialSunAmount": 100,
+    "difficultyBadge": "hard",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 10.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
-            "zombiesPerWave": 5,
-            "spawnIntervalSec": 0.6,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 2.0,
-            "repeat": 12,
-            "zombiesPerWave": 6,
-            "spawnIntervalSec": 0.3,
-            "waveIntervalSec": 1.5,
+            "startDelaySec": 20.0,
+            "repeat": 2,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 7.0,
+            "waveIntervalSec": 25.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "polevaulting"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 1.0,
-            "repeat": 1,
-            "zombiesPerWave": 25,
-            "spawnIntervalSec": 0.4,
+            "startDelaySec": 20.0,
+            "repeat": 2,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 7.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "conehead",
+                "polevaulting"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "gold_magnet"
-        ],
-        "sunAmountReward": 300
-    }
+    ]
 }

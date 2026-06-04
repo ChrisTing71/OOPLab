@@ -1,50 +1,55 @@
 {
-    "levelId": 5,
-    "name": "Level 5 - Night Falls",
-    "description": "Darkness brings harder challenges. Stay vigilant.",
-    "sceneType": "night",
-    "initialSunAmount": 50,
-    "difficultyBadge": "Medium",
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
+    "sceneType": "day",
+    "initialSunAmount": 100,
+    "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 20.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
-            "zombiesPerWave": 2,
-            "spawnIntervalSec": 1.0,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 8.0,
-            "repeat": 6,
-            "zombiesPerWave": 4,
-            "spawnIntervalSec": 0.8,
-            "waveIntervalSec": 6.0,
+            "startDelaySec": 20.0,
+            "repeat": 1,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 7.0,
+            "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "polevaulting"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 5.0,
+            "startDelaySec": 20.0,
             "repeat": 1,
-            "zombiesPerWave": 10,
-            "spawnIntervalSec": 1.2,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 7.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "conehead",
+                "polevaulting"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "tall_nut"
-        ],
-        "sunAmountReward": 150
-    }
+    ]
 }
