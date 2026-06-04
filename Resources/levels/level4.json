@@ -1,50 +1,54 @@
 {
-    "levelId": 4,
-    "name": "Level 4 - Peak Pressure",
-    "description": "The largest waves yet. Prepare your garden carefully.",
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
     "sceneType": "day",
-    "initialSunAmount": 75,
-    "difficultyBadge": "Medium",
+    "initialSunAmount": 100,
+    "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 25.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
-            "zombiesPerWave": 2,
-            "spawnIntervalSec": 1.0,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 10.0,
-            "repeat": 5,
+            "startDelaySec": 15.0,
+            "repeat": 1,
             "zombiesPerWave": 3,
-            "spawnIntervalSec": 1.0,
-            "waveIntervalSec": 7.0,
+            "spawnIntervalSec": 7.0,
+            "waveIntervalSec": 20.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "conehead"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 8.0,
-            "repeat": 1,
-            "zombiesPerWave": 8,
-            "spawnIntervalSec": 1.5,
+            "startDelaySec": 20.0,
+            "repeat": 2,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 7.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "conehead",
+                "conehead"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "cherry_bomb"
-        ],
-        "sunAmountReward": 125
-    }
+    ]
 }

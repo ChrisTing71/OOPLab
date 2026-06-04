@@ -1,50 +1,53 @@
 {
-    "levelId": 6,
-    "name": "Level 6 - Advanced Strategy",
-    "description": "Combine plants wisely. Master the garden mechanics.",
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
     "sceneType": "day",
     "initialSunAmount": 100,
-    "difficultyBadge": "Medium",
+    "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 20.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
-            "zombiesPerWave": 3,
-            "spawnIntervalSec": 1.0,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 6.0,
-            "repeat": 7,
-            "zombiesPerWave": 4,
-            "spawnIntervalSec": 0.7,
-            "waveIntervalSec": 5.0,
+            "startDelaySec": 15.0,
+            "repeat": 1,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 7.0,
+            "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "polevaulting"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 4.0,
+            "startDelaySec": 20.0,
             "repeat": 1,
-            "zombiesPerWave": 12,
-            "spawnIntervalSec": 1.0,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 7.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "conehead",
+                "polevaulting"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "repeater"
-        ],
-        "sunAmountReward": 175
-    }
+    ]
 }

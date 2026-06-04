@@ -1,50 +1,55 @@
 {
-    "levelId": 9,
-    "name": "Level 9 - Zomboss Arrives",
-    "description": "A legendary zombie appears. Prepare your ultimate defense!",
-    "sceneType": "day",
-    "initialSunAmount": 150,
-    "difficultyBadge": "Hard",
+    "levelId": 2,
+    "name": "Level 2 - Growing Threat",
+    "description": "More zombies are coming. Plant a defense strategy.",
+    "sceneType": "night",
+    "initialSunAmount": 100,
+    "difficultyBadge": "Easy",
     "minDefensePoints": 0,
     "phases": [
         {
             "id": "opening_setup",
             "type": "setup",
-            "startDelaySec": 12.0,
+            "startDelaySec": 30.0,
             "repeat": 1,
-            "zombiesPerWave": 4,
-            "spawnIntervalSec": 0.8,
+            "zombiesPerWave": 1,
+            "spawnIntervalSec": 1.5,
             "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieType": "leader"
         },
         {
             "id": "sub_waves",
             "type": "sub",
-            "startDelaySec": 3.0,
-            "repeat": 10,
-            "zombiesPerWave": 5,
-            "spawnIntervalSec": 0.4,
-            "waveIntervalSec": 2.0,
+            "startDelaySec": 20.0,
+            "repeat": 1,
+            "zombiesPerWave": 3,
+            "spawnIntervalSec": 7.0,
+            "waveIntervalSec": 0.0,
             "waitUntilClear": false,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "polevaulting"
+            ],
+            "randomOrder": true
         },
         {
             "id": "huge_wave",
             "type": "huge",
-            "startDelaySec": 1.0,
+            "startDelaySec": 20.0,
             "repeat": 1,
-            "zombiesPerWave": 20,
-            "spawnIntervalSec": 0.5,
+            "zombiesPerWave": 5,
+            "spawnIntervalSec": 7.0,
             "waveIntervalSec": 0.0,
             "waitUntilClear": true,
-            "zombieType": "basic"
+            "zombieTypes": [
+                "basic",
+                "basic",
+                "conehead",
+                "polevaulting"
+            ],
+            "randomOrder": true
         }
-    ],
-    "reward": {
-        "unlockedPlants": [
-            "cob_cannon"
-        ],
-        "sunAmountReward": 250
-    }
+    ]
 }
