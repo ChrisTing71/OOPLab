@@ -39,6 +39,11 @@ public:
     }
 
     m_Health = glm::max(0, m_Health - amount);
+    if (m_Health == 0) {
+      // Immediately hide the object so it doesn't appear alive visually
+      // until the main loop removes dead plants.
+      SetVisible(false);
+    }
   }
 
   virtual void OnProducedSunCollected() {}
