@@ -1,5 +1,6 @@
 #include "App.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <random>
 
@@ -843,6 +844,29 @@ std::vector<std::shared_ptr<Plant>> App::CollectAlivePlants() const {
   return plants;
 }
 
+namespace {
+std::string PlantSelectionToId(App::PlantCardSelection selection) {
+  switch (selection) {
+  case App::PlantCardSelection::SUNFLOWER:
+    return "sunflower";
+  case App::PlantCardSelection::SUNSHROOM:
+    return "sunshroom";
+  case App::PlantCardSelection::PUFFSHROOM:
+    return "puffshroom";
+  case App::PlantCardSelection::FUMESHROOM:
+    return "fumeshroom";
+  case App::PlantCardSelection::PEASHOOTER:
+    return "peashooter";
+  case App::PlantCardSelection::NUT:
+    return "nut";
+  case App::PlantCardSelection::CHERRY_BOMB:
+    return "cherrybomb";
+  default:
+    return std::string();
+  }
+}
+}
+
 void App::SetupPlantCards() {
   if (!PrepareSunflowerFrames() || !PrepareSunshroomFrames() ||
       !PreparePeashooterFrames() || !PrepareNutFrames() ||
@@ -852,6 +876,15 @@ void App::SetupPlantCards() {
       !PrepareShroomBulletHitFrames()) {
     return;
   }
+
+  if (m_LevelManager == nullptr) {
+    return;
+  }
+
+  const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
+  const bool allowAllPlants = levelConfig.allowedPlants.empty();
+  const auto allowedPlantIds = std::set<std::string>(
+      levelConfig.allowedPlants.begin(), levelConfig.allowedPlants.end());
 
   m_PlantCards = {
       {
@@ -925,8 +958,21 @@ void App::SetupPlantCards() {
       },
   };
 
-  for (const auto &card : m_PlantCards) {
-    PrepareGrayCardImage(card.normalImagePath, card.disabledImagePath);
+  if (allowAllPlants) {
+    for (const auto &card : m_PlantCards) {
+      PrepareGrayCardImage(card.normalImagePath, card.disabledImagePath);
+    }
+  } else {
+    std::vector<PlantCardUI> filteredCards;
+    filteredCards.reserve(m_PlantCards.size());
+    for (auto &card : m_PlantCards) {
+      if (allowedPlantIds.find(PlantSelectionToId(card.selection)) !=
+          allowedPlantIds.end()) {
+        PrepareGrayCardImage(card.normalImagePath, card.disabledImagePath);
+        filteredCards.push_back(std::move(card));
+      }
+    }
+    m_PlantCards = std::move(filteredCards);
   }
 
   const glm::vec2 sourceSize = m_CardSlot->GetSourceSize();
@@ -2873,7 +2919,6 @@ void App::Start() {
     m_UIRoot.AddChild(m_CardSlot);
   }
 
-  SetupPlantCards();
   PrepareCherryBombBlowFrames();
   PreparePeashooterAttackFrames();
   PrepareBasicZombieFrames();
@@ -2985,8 +3030,6 @@ void App::UpdateCamera(const float deltaTime) {
   case CameraStage::FINISHED:
     m_CameraCurrentX = centerCameraX;
     m_CardSlot->SetVisible(true);
-    m_SunflowerCard->SetVisible(true);
-    m_PeashooterCard->SetVisible(true);
     m_ShovelShell->SetVisible(true);
     m_Shovel->SetVisible(m_SelectedPlant != PlantCardSelection::SHOVEL);
     for (auto &mower : m_LawnMowers) {

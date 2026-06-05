@@ -31,6 +31,7 @@ struct LevelConfig {
   LevelReward reward;       // Unlock rewards
   int minDefensePoints = 0; // Minimum sun/resources to earn reward
   std::string difficultyBadge = "Easy"; // Visual difficulty indicator
+  std::vector<std::string> allowedPlants; // Plant IDs allowed in this level. Empty means all plants allowed.
 
   // Validation
   bool IsValid() const;
