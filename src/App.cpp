@@ -982,13 +982,13 @@ void App::SetupPlantCards() {
     return;
   }
 
-  constexpr float kCardsX1 = 113.0F;
+  constexpr float kCardsX1 = 100.0F;
   constexpr float kCardsY1 = 10.0F;
   constexpr float kCardsY2 = 97.0F;
   const float cardRegionHeight = kCardsY2 - kCardsY1;
   const float centerY = (kCardsY1 + kCardsY2) * 0.5F;
   constexpr float kLeftPadding = 12.0F;
-  constexpr float kCardGap = 14.0F;
+  constexpr float kCardGap = 10.0F;
 
   const float scaleY = slotSize.y / sourceSize.y;
   const float targetHeightPx = cardRegionHeight * scaleY;
