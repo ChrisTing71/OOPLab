@@ -16,6 +16,8 @@ public:
                moveSpeedPxPerSec, health) {}
 
   ~ConeheadZombie() override = default;
+
+  bool HasExtraArmor() const override { return true; }
 };
 
 #endif

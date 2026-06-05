@@ -9,6 +9,8 @@ public:
   Fumeshroom(const std::vector<std::string> &idleFramePaths,
              std::size_t frameIntervalMs, float targetHeightPx);
 
+  bool CanShoot() const override { return true; }
+
   bool StartAttack(const std::vector<std::string> &attackFramePaths,
                    std::size_t frameIntervalMs);
   bool UpdateAttackStateAndCheckShoot();

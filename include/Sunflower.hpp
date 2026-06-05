@@ -11,6 +11,8 @@ public:
   Sunflower(const std::vector<std::string> &framePaths,
             std::size_t frameIntervalMs, float targetHeightPx);
 
+  bool ProducesSun() const override { return true; }
+
   bool ShouldProduceSun(float deltaTime);
   void OnProducedSunCollected();
   glm::vec2 GetSunSpawnOffset() const;

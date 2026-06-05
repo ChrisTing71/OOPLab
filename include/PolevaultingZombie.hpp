@@ -28,6 +28,8 @@ public:
 
   ~PolevaultingZombie() override = default;
 
+  bool CanJumpOverPlants() const override { return true; }
+
   void Update(float dt,
               const std::vector<std::shared_ptr<Plant>> &plants) override;
 
