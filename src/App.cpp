@@ -433,70 +433,12 @@ bool App::PrepareLawnMowerFrames() {
                               m_LawnMowerFrameIntervalMs);
 }
 
-void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
-  m_ZombieWavePlan.clear();
-  float timelineSec = 0.0F;
-
-  for (const auto &phase : waveConfig.phases) {
-    timelineSec += phase.startDelaySec;
-    for (int i = 0; i < phase.repeat; ++i) {
-      ZombieWavePhaseConfig phaseCopy = phase;
-      if (phaseCopy.zombieTypes.empty()) {
-        phaseCopy.zombieTypes = {phaseCopy.zombieType};
-      }
-      phaseCopy.zombieTypes = BuildZombieTypeSequence(phaseCopy);
-      m_ZombieWavePlan.push_back({
-          phase.id,
-          phase.type,
-          phase.zombieType,
-          phaseCopy.zombieTypes,
-          phaseCopy.randomOrder,
-          timelineSec,
-          phase.zombiesPerWave,
-          phase.spawnIntervalSec,
-          phase.waitUntilClear,
-      });
-      timelineSec += phase.waveIntervalSec;
-    }
-  }
-
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
-}
-
 int App::GetPlannedZombieCount() const {
   int totalZombies = 0;
-  for (const auto &waveGroup : m_ZombieWavePlan) {
+  for (const auto &waveGroup : m_WaveController.GetPlan()) {
     totalZombies += glm::max(0, waveGroup.zombieCount);
   }
   return totalZombies;
-}
-
-std::vector<std::string>
-App::BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const {
-  std::vector<std::string> sequence;
-  sequence.reserve(static_cast<std::size_t>(phase.zombiesPerWave));
-
-  if (!phase.zombieTypes.empty()) {
-    for (int index = 0; index < phase.zombiesPerWave; ++index) {
-      sequence.push_back(phase.zombieTypes[static_cast<std::size_t>(index) %
-                                           phase.zombieTypes.size()]);
-    }
-  } else {
-    const std::string zombieType =
-        phase.zombieType.empty() ? "basic" : phase.zombieType;
-    for (int index = 0; index < phase.zombiesPerWave; ++index) {
-      sequence.push_back(zombieType);
-    }
-  }
-
-  if (phase.randomOrder && sequence.size() > 1) {
-    std::shuffle(sequence.begin(), sequence.end(), m_Random);
-  }
-
-  return sequence;
 }
 
 const std::vector<std::string> &
@@ -607,7 +549,7 @@ void App::PrepareBasicZombieStandPreview() {
   }
   std::uniform_int_distribution<int> yIndexDist(
       0, static_cast<int>(yCandidates.size()) - 1);
-  for (const auto &waveGroup : m_ZombieWavePlan) {
+  for (const auto &waveGroup : m_WaveController.GetPlan()) {
     for (int index = 0; index < waveGroup.zombieCount; ++index) {
       const float xPercent = xDist(m_Random);
       const float yPercent =
@@ -1749,63 +1691,20 @@ void App::UpdateBasicZombie(const float deltaTime) {
     ++i;
   }
 
-  if (!m_WaveSystemStarted) {
+  if (!m_WaveController.IsStarted()) {
     return;
   }
 
-  m_WaveElapsedSec += deltaTime;
+  bool triggerHuge = false;
+  const auto spawnRequests = m_WaveController.Tick(
+      deltaTime, HasAliveZombie(), m_HugeWaveBannerRemainingSec, triggerHuge);
 
-  if (!m_WaveGroupActive && m_CurrentWaveGroupIndex < m_ZombieWavePlan.size()) {
-    const ZombieWaveSpawnGroup &candidate =
-        m_ZombieWavePlan[m_CurrentWaveGroupIndex];
-    const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
-    const bool clearConditionOk =
-        !candidate.waitUntilClear || !HasAliveZombie();
-    const bool isHugeWave =
-        (candidate.phaseId == "huge_wave") || (candidate.phaseType == "huge");
-
-    if (hasReachedStart && clearConditionOk) {
-      if (isHugeWave) {
-        TriggerHugeWaveBanner();
-      }
-      if (isHugeWave && m_HugeWaveBannerRemainingSec > 0.0F) {
-        return;
-      }
-      m_CurrentWaveGroup = candidate;
-      m_WaveGroupActive = true;
-      m_WaveGroupSpawnedCount = 0;
-      m_WaveGroupSpawnTimer = 0.0F;
-    }
+  if (triggerHuge) {
+    TriggerHugeWaveBanner();
   }
 
-  if (!m_WaveGroupActive) {
-    return;
-  }
-
-  m_WaveGroupSpawnTimer -= deltaTime;
-  while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
-         m_WaveGroupSpawnTimer <= 0.0F) {
-    const int spawnRow = PickSpawnRowForWaveSpawn();
-    const std::string zombieType =
-        m_CurrentWaveGroup.zombieTypes.empty()
-            ? m_CurrentWaveGroup.zombieType
-            : m_CurrentWaveGroup
-                  .zombieTypes[static_cast<std::size_t>(
-                                   m_WaveGroupSpawnedCount) %
-                               m_CurrentWaveGroup.zombieTypes.size()];
-    SpawnZombieAtRow(spawnRow, zombieType);
-    ++m_WaveGroupSpawnedCount;
-
-    if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
-      m_WaveGroupSpawnTimer = 0.0F;
-    } else {
-      m_WaveGroupSpawnTimer += m_CurrentWaveGroup.spawnIntervalSec;
-    }
-  }
-
-  if (m_WaveGroupSpawnedCount >= m_CurrentWaveGroup.zombieCount) {
-    m_WaveGroupActive = false;
-    ++m_CurrentWaveGroupIndex;
+  for (const auto &req : spawnRequests) {
+    SpawnZombieAtRow(PickSpawnRowForWaveSpawn(), req.zombieType);
   }
 }
 
@@ -2935,8 +2834,7 @@ void App::UpdateCamera(const float deltaTime) {
       ClearBasicZombieStandPreview();
       SetupLawnMowers();
       m_SunSystemStarted = true;
-      m_WaveSystemStarted = true;
-      m_WaveElapsedSec = 0.0F;
+      m_WaveController.Start();
       m_SunSpawnCountdown = 6.0F;
     }
     break;
@@ -2987,8 +2885,7 @@ void App::Update() {
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
 
     // Check win/lose conditions
-    if (!HasAliveZombie() && m_WaveSystemStarted &&
-        m_CurrentWaveGroupIndex >= m_ZombieWavePlan.size()) {
+    if (!HasAliveZombie() && m_WaveController.IsFinished()) {
       m_LevelManager->CompleteLevelSuccess();
       m_CurrentState = State::LEVEL_COMPLETE;
     }
@@ -3139,7 +3036,7 @@ void App::InitializeLevel() {
     m_LevelWaveConfig.phases.push_back(phase);
   }
 
-  BuildZombieSpawnPlan(m_LevelWaveConfig);
+  m_WaveController.Initialize(m_LevelWaveConfig);
   PrepareBasicZombieStandPreview();
 
   m_PeashooterAttackCooldowns.fill(1.0F);
@@ -3152,12 +3049,6 @@ void App::InitializeLevel() {
   m_LawnMowers.fill({});
   m_BasicZombieStandReady = false;
   m_UseStandRowForNextSpawn = true;
-  m_WaveSystemStarted = false;
-  m_WaveElapsedSec = 0.0F;
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
   m_HasShownHugeWaveBanner = false;
   m_HugeWaveBannerRemainingSec = 0.0F;
   m_GameOverBannerRemainingSec = 0.0F;
@@ -3204,12 +3095,7 @@ void App::ResetLevelRuntimeState() {
   m_UseStandRowForNextSpawn = true;
   m_BasicZombieStandYPercent = 0.0F;
 
-  m_ZombieWavePlan.clear();
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
-  m_CurrentWaveGroup = {};
+  m_WaveController.Reset();
   m_HasShownHugeWaveBanner = false;
   m_HugeWaveBannerRemainingSec = 0.0F;
   m_GameOverBannerRemainingSec = 0.0F;

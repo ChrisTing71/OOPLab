@@ -8,6 +8,7 @@
 
 #include "Bullet.hpp"
 #include "CardSlot.hpp"
+#include "ZombieWaveController.hpp"
 #include "CherryBomb.hpp"
 #include "Fumeshroom.hpp"
 #include "LevelManager.hpp"
@@ -97,18 +98,6 @@ public:
     bool destroyed = false;
   };
 
-  struct ZombieWaveSpawnGroup {
-    std::string phaseId;
-    std::string phaseType;
-    std::string zombieType = "basic";
-    std::vector<std::string> zombieTypes;
-    bool randomOrder = false;
-    float earliestStartSec = 0.0F;
-    int zombieCount = 0;
-    float spawnIntervalSec = 0.0F;
-    bool waitUntilClear = false;
-  };
-
   enum class PlantCardSelection {
     NONE,
     SUNFLOWER,
@@ -193,9 +182,6 @@ private:
   void SetupBasicZombieStand();
   void ClearBasicZombieStandPreview();
   int GetPlannedZombieCount() const;
-  void BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig);
-  std::vector<std::string>
-  BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const;
   void SpawnZombieAtRow(int row, const std::string &zombieType);
   int PickSpawnRowForWaveSpawn();
   bool HasAliveZombie() const;
@@ -389,15 +375,8 @@ private:
   bool m_BasicZombieStandReady = false;
   bool m_UseStandRowForNextSpawn = true;
   float m_BasicZombieStandYPercent = 0.0F;
-  bool m_WaveSystemStarted = false;
-  float m_WaveElapsedSec = 0.0F;
   LevelWaveConfig m_LevelWaveConfig;
-  std::vector<ZombieWaveSpawnGroup> m_ZombieWavePlan;
-  std::size_t m_CurrentWaveGroupIndex = 0;
-  bool m_WaveGroupActive = false;
-  int m_WaveGroupSpawnedCount = 0;
-  float m_WaveGroupSpawnTimer = 0.0F;
-  ZombieWaveSpawnGroup m_CurrentWaveGroup;
+  ZombieWaveController m_WaveController;
   bool m_HasShownHugeWaveBanner = false;
   float m_HugeWaveBannerRemainingSec = 0.0F;
   float m_GameOverBannerRemainingSec = 0.0F;
