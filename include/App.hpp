@@ -8,6 +8,7 @@
 
 #include "Bullet.hpp"
 #include "CardSlot.hpp"
+#include "SunManager.hpp"
 #include "ZombieWaveController.hpp"
 #include "CherryBomb.hpp"
 #include "Fumeshroom.hpp"
@@ -52,26 +53,6 @@ public:
     STAGE2_RIGHT,
     STAGE3_CENTER,
     FINISHED,
-  };
-
-  struct ActiveSun {
-    std::shared_ptr<Sun> object;
-    std::weak_ptr<Plant> producer;
-    int value = 25;
-    float aliveSeconds = 0.0F;
-    float stoppedSeconds = 0.0F;
-    bool collecting = false;
-    float collectElapsed = 0.0F;
-    glm::vec2 collectStart = {0.0F, 0.0F};
-    bool rising = false;
-    float riseElapsed = 0.0F;
-    glm::vec2 riseStart = {0.0F, 0.0F};
-    glm::vec2 riseTarget = {0.0F, 0.0F};
-    bool falling = true;
-    bool stopped = false;
-    float stopLocalY = 0.0F;
-    bool expires = true;
-    bool fromSky = false;
   };
 
   // Bullet collections for the two directed-projectile plant types.
@@ -172,12 +153,6 @@ private:
   float ComputeZombieTargetHeight() const;
   float ComputePeaTargetHeight() const;
   float ComputePlantPreviewTargetHeight() const;
-  void SpawnFallingSun();
-  void SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower);
-  void SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
-                             int sunValue);
-  void UpdateSuns(float deltaTime);
-  void UpdateSunshrooms(float deltaTime);
   void PrepareBasicZombieStandPreview();
   void SetupBasicZombieStand();
   void ClearBasicZombieStandPreview();
@@ -189,6 +164,8 @@ private:
   GetZombiePreviewStandFramePaths(const std::string &zombieType) const;
   int GetZombiePreviewStandFrameIntervalMs(const std::string &zombieType) const;
   float ComputeZombiePreviewTargetHeight(const std::string &zombieType) const;
+  void UpdateSuns(float deltaTime);
+  bool TryCollectSunAt(float pixelX, float pixelY);
   void UpdateBasicZombie(float deltaTime);
   void SetupLawnMowers();
   void UpdateLawnMowers(float deltaTime);
@@ -202,7 +179,6 @@ private:
   void SpawnShroomBulletFromPuffshroom(const std::shared_ptr<Puffshroom> &puff);
   void SpawnFumeshroomAttackEffect(const std::shared_ptr<Fumeshroom> &fume);
   bool HasAliveZombieInRow(int row, float shooterX) const;
-  bool TryCollectSunAt(float pixelX, float pixelY);
   void RemoveDeadPlants();
   void UpdatePlantCardUIState();
   void DrawGameplayCheatToggle();
@@ -214,7 +190,6 @@ private:
   glm::vec2 ScreenPercentToRootLocal(float xPercent, float yPercent) const;
   float GridRowCenterPercent(int row) const;
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
-  void RemoveSunAt(std::size_t index);
   void DrawSunlightCounter() const;
   void DebugDrawMouseOverlay() const;
   void DebugDrawCollisionBoxes() const;
@@ -426,11 +401,9 @@ private:
   PlantCardSelection m_SelectedPlant = PlantCardSelection::NONE;
   Util::Renderer m_UIRoot;
 
-  bool m_SunSystemStarted = false;
-  float m_SunSpawnCountdown = 0.0F;
-  std::vector<ActiveSun> m_Suns;
   int m_Sunlight = 0;
   mutable std::mt19937 m_Random{std::random_device{}()};
+  SunManager m_SunManager{m_UIRoot, m_Random};
 
   // Level and Menu Management
   std::shared_ptr<LevelManager> m_LevelManager;

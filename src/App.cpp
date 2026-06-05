@@ -1396,136 +1396,6 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   return removed;
 }
 
-void App::SpawnFallingSun() {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kSpawnYPercent = 20.0F;
-  constexpr float kStopMinYPercent = 52.0F;
-  constexpr float kStopMaxYPercent = 78.0F;
-  std::uniform_real_distribution<float> xPercentDist(8.0F, 92.0F);
-  std::uniform_real_distribution<float> stopYPercentDist(kStopMinYPercent,
-                                                         kStopMaxYPercent);
-
-  const float spawnXPercent = xPercentDist(m_Random);
-  const float spawnPixelX =
-      (spawnXPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
-  const float spawnPixelY =
-      (kSpawnYPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-
-  const float localX = spawnPixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
-  const float localY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - spawnPixelY;
-  const float stopPixelY =
-      (stopYPercentDist(m_Random) / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  const float stopLocalY =
-      static_cast<float>(WINDOW_HEIGHT) * 0.5F - stopPixelY;
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-  sun->m_Transform.translation = {localX, localY};
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.falling = true;
-  activeSun.stopped = false;
-  activeSun.stopLocalY = stopLocalY;
-  activeSun.fromSky = true;
-  activeSun.expires = true;
-  activeSun.value = 25;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kPopDistancePercent = 7.0F;
-  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-
-  if (sunflower == nullptr) {
-    return;
-  }
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-
-  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
-  const glm::vec2 startPosition = sunflower->m_Transform.translation +
-                                  sunflower->GetSunSpawnOffset() +
-                                  rootToScreenOffset;
-  const glm::vec2 targetPosition =
-      sunflower->m_Transform.translation +
-      sunflower->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
-                                       static_cast<float>(WINDOW_HEIGHT)) +
-      rootToScreenOffset;
-  sun->m_Transform.translation = startPosition;
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.producer = sunflower;
-  activeSun.value = 25;
-  activeSun.falling = false;
-  activeSun.expires = false;
-  activeSun.rising = true;
-  activeSun.riseStart = startPosition;
-  activeSun.riseTarget = targetPosition;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
-                                const int sunValue) {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kPopDistancePercent = 7.0F;
-  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-
-  if (sunshroom == nullptr) {
-    return;
-  }
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-
-  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
-  const glm::vec2 startPosition = sunshroom->m_Transform.translation +
-                                  sunshroom->GetSunSpawnOffset() +
-                                  rootToScreenOffset;
-  const glm::vec2 targetPosition =
-      sunshroom->m_Transform.translation +
-      sunshroom->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
-                                       static_cast<float>(WINDOW_HEIGHT)) +
-      rootToScreenOffset;
-  sun->m_Transform.translation = startPosition;
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.producer = sunshroom;
-  activeSun.value = sunValue;
-  activeSun.falling = false;
-  activeSun.expires = false;
-  activeSun.rising = true;
-  activeSun.riseStart = startPosition;
-  activeSun.riseTarget = targetPosition;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::UpdateSunshrooms(const float deltaTime) {
-  if (deltaTime <= 0.0F) {
-    return;
-  }
-
-  for (const auto &sunshroom : m_Sunshrooms) {
-    if (sunshroom == nullptr || sunshroom->IsDead()) {
-      continue;
-    }
-
-    sunshroom->Update(deltaTime);
-    if (sunshroom->ShouldProduceSun(deltaTime)) {
-      SpawnSunFromSunshroom(sunshroom, sunshroom->GetProducedSunValue());
-    }
-  }
-}
 
 glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
                                             const float sourceY) const {
@@ -1549,111 +1419,18 @@ glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
 }
 
 void App::UpdateSuns(const float deltaTime) {
-  // Only spawn automatic falling sun during daytime
   const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
-  const bool isNightScene = (levelConfig.sceneType == SceneType::NIGHT);
+  const bool isNight = (levelConfig.sceneType == SceneType::NIGHT);
+  const glm::vec2 collectTarget =
+      CardSlotLocalFromSourceCoord((17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
 
-  if (!isNightScene) {
-    m_SunSpawnCountdown -= deltaTime;
-    if (m_SunSpawnCountdown <= 0.0F) {
-      SpawnFallingSun();
-      m_SunSpawnCountdown = 8.0F;
-    }
-  }
+  std::vector<std::shared_ptr<Sunflower>> sunflowers(m_Sunflowers.begin(),
+                                                     m_Sunflowers.end());
+  std::vector<std::shared_ptr<Sunshroom>> sunshrooms(m_Sunshrooms.begin(),
+                                                     m_Sunshrooms.end());
 
-  for (const auto &sunflower : m_Sunflowers) {
-    if (sunflower == nullptr || !sunflower->ShouldProduceSun(deltaTime)) {
-      continue;
-    }
-
-    SpawnSunFromSunflower(sunflower);
-  }
-
-  const float dropSpeedPx = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-  const glm::vec2 collectTargetLocal = CardSlotLocalFromSourceCoord(
-      (17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
-  constexpr float kCollectMoveSeconds = 0.30F;
-  constexpr float kRiseMoveSeconds = 0.35F;
-
-  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    auto &sun = m_Suns[i];
-
-    if (sun.collecting) {
-      sun.collectElapsed += deltaTime;
-      const float t =
-          glm::clamp(sun.collectElapsed / kCollectMoveSeconds, 0.0F, 1.0F);
-      sun.object->m_Transform.translation = {
-          Lerp(sun.collectStart.x, collectTargetLocal.x, t),
-          Lerp(sun.collectStart.y, collectTargetLocal.y, t),
-      };
-      continue;
-    }
-
-    sun.aliveSeconds += deltaTime;
-
-    if (sun.rising) {
-      sun.riseElapsed += deltaTime;
-      const float t =
-          glm::clamp(sun.riseElapsed / kRiseMoveSeconds, 0.0F, 1.0F);
-      const float easedT = 1.0F - (1.0F - t) * (1.0F - t);
-      sun.object->m_Transform.translation = {
-          Lerp(sun.riseStart.x, sun.riseTarget.x, easedT),
-          Lerp(sun.riseStart.y, sun.riseTarget.y, easedT),
-      };
-      if (t >= 1.0F) {
-        sun.rising = false;
-      }
-      continue;
-    }
-
-    if (sun.falling) {
-      sun.object->m_Transform.translation.y -= dropSpeedPx * deltaTime;
-
-      if (sun.fromSky && !sun.stopped &&
-          sun.object->m_Transform.translation.y <= sun.stopLocalY) {
-        sun.object->m_Transform.translation.y = sun.stopLocalY;
-        sun.falling = false;
-        sun.stopped = true;
-        sun.stoppedSeconds = 0.0F;
-      }
-    }
-
-    if (sun.fromSky && sun.stopped) {
-      sun.stoppedSeconds += deltaTime;
-    }
-  }
-
-  for (std::size_t i = 0; i < m_Suns.size();) {
-    const auto &sun = m_Suns[i];
-
-    if (sun.collecting && sun.collectElapsed >= kCollectMoveSeconds) {
-      // Capture needed data before modifying `m_Suns` (which may invalidate
-      // references/iterators). Accessing `sun` after RemoveSunAt() is UB.
-      const int collectedValue = sun.value;
-      const auto producerWeak = sun.producer;
-
-      if (const auto producer = producerWeak.lock(); producer != nullptr) {
-        producer->OnProducedSunCollected();
-      }
-
-      RemoveSunAt(i);
-      m_Sunlight += collectedValue;
-      continue;
-    }
-
-    const glm::vec2 sunSize = sun.object->GetScaledSize();
-    const float centerY = static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-                          sun.object->m_Transform.translation.y;
-    const float sunTopPixel = centerY - sunSize.y * 0.5F;
-    if (!sun.collecting && sun.expires &&
-        ((sun.fromSky && sun.stopped && sun.stoppedSeconds > 5.0F) ||
-         (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
-      RemoveSunAt(i);
-      continue;
-    }
-
-    ++i;
-  }
+  m_Sunlight += m_SunManager.Update(deltaTime, collectTarget, isNight,
+                                    m_CameraCurrentX, sunflowers, sunshrooms);
 }
 
 void App::SetupBasicZombieStand() {
@@ -2384,25 +2161,7 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
 }
 
 bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
-  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    auto &sun = m_Suns[i];
-    if (!CollisionSystem::IsPixelInsideObject(sun.object, pixelX, pixelY)) {
-      continue;
-    }
-
-    if (sun.collecting) {
-      return true;
-    }
-
-    sun.collecting = true;
-    sun.collectElapsed = 0.0F;
-    sun.collectStart = sun.object->m_Transform.translation;
-    sun.rising = false;
-    sun.falling = false;
-    return true;
-  }
-
-  return false;
+  return m_SunManager.TryCollect(pixelX, pixelY);
 }
 
 void App::RemoveDeadPlants() {
@@ -2580,10 +2339,6 @@ void App::StartPlantCardCooldown(PlantCardSelection sel) {
   }
 }
 
-void App::RemoveSunAt(const std::size_t index) {
-  m_UIRoot.RemoveChild(m_Suns[index].object);
-  m_Suns.erase(m_Suns.begin() + static_cast<long>(index));
-}
 
 void App::DrawSunlightCounter() const {
   if (m_CameraStage != CameraStage::FINISHED) {
@@ -2833,9 +2588,8 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStageElapsed = 0.0F;
       ClearBasicZombieStandPreview();
       SetupLawnMowers();
-      m_SunSystemStarted = true;
+      m_SunManager.Start(6.0F);
       m_WaveController.Start();
-      m_SunSpawnCountdown = 6.0F;
     }
     break;
   }
@@ -3053,8 +2807,7 @@ void App::InitializeLevel() {
   m_HugeWaveBannerRemainingSec = 0.0F;
   m_GameOverBannerRemainingSec = 0.0F;
 
-  m_SunSystemStarted = false;
-  m_SunSpawnCountdown = 0.0F;
+  m_SunManager.Reset();
 }
 
 void App::ResetLevelRuntimeState() {
@@ -3083,7 +2836,6 @@ void App::ResetLevelRuntimeState() {
   m_ShroomBullets.clear();
   m_FumeshroomEffects.clear();
   m_ActiveZombies.clear();
-  m_Suns.clear();
   m_LawnMowers.fill({});
 
   ClearBasicZombieStandPreview();
@@ -3103,8 +2855,7 @@ void App::ResetLevelRuntimeState() {
   m_HugeWaveBanner->SetVisible(false);
   m_GameOverBanner->SetVisible(false);
 
-  m_SunSystemStarted = false;
-  m_SunSpawnCountdown = 0.0F;
+  m_SunManager.Reset();
   m_PuffshroomAttackCooldowns.fill(0.0F);
   m_PuffshroomAttackWarmupRemaining.fill(0.0F);
 }
@@ -3125,13 +2876,10 @@ void App::UpdateGameplay(float deltaTime) {
 
   UpdateCamera(dt);
   SetupBasicZombieStand();
-  if (m_SunSystemStarted) {
-    UpdateSuns(dt);
-  }
+  UpdateSuns(dt);
   UpdateBasicZombie(dt);
   UpdateLawnMowers(dt);
   UpdateCherryBombs(deltaTime);
-  UpdateSunshrooms(dt);
   UpdatePeashooterCombat(dt);
   UpdatePuffshroomCombat(dt);
   UpdateFumeshroomCombat(dt);

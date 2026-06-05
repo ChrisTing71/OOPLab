@@ -14,7 +14,7 @@ public:
   bool ProducesSun() const override { return true; }
 
   bool ShouldProduceSun(float deltaTime);
-  void OnProducedSunCollected();
+  void OnProducedSunCollected() override;
   glm::vec2 GetSunSpawnOffset() const;
   glm::vec2 GetSunPopTargetOffset(float popDistancePx) const;
 
