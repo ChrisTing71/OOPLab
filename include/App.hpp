@@ -6,6 +6,7 @@
 
 #include "pch.hpp" // IWYU pragma: export
 
+#include "Bullet.hpp"
 #include "CardSlot.hpp"
 #include "CherryBomb.hpp"
 #include "Fumeshroom.hpp"
@@ -72,19 +73,8 @@ public:
     bool fromSky = false;
   };
 
-  struct ActivePea {
-    enum class ProjectileType {
-      PEASHOOTER,
-      PUFFSHROOM,
-    };
-
-    std::shared_ptr<Util::GameObject> object;
-    int row = -1;
-    bool hitting = false;
-    std::shared_ptr<Util::Animation> hitAnimation = nullptr;
-    ProjectileType type = ProjectileType::PEASHOOTER;
-    float hitElapsedSec = 0.0F;
-  };
+  // Bullet collections for the two directed-projectile plant types.
+  // Separated so each combat-update function processes only its own bullets.
 
   struct ActiveFumeshroomEffect {
     std::shared_ptr<Util::GameObject> object;
@@ -332,7 +322,8 @@ private:
   int m_ShroomBulletFrameIntervalMs = 100;
   std::vector<std::string> m_ShroomBulletHitFramePaths;
   int m_ShroomBulletHitFrameIntervalMs = 100;
-  std::vector<ActivePea> m_Peas;
+  std::vector<std::shared_ptr<Bullet>> m_PeaBullets;
+  std::vector<std::shared_ptr<Bullet>> m_ShroomBullets;
   std::vector<ActiveFumeshroomEffect> m_FumeshroomEffects;
   std::vector<std::string> m_PeaHitFramePaths = {
       "Resources/gameplay/plants/peashooter/peashooter_bullet/hit1.png",

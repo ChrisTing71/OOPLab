@@ -2015,13 +2015,14 @@ void App::SpawnPeaFromPeashooter(
     return;
   }
 
-  auto pea = std::make_shared<Util::GameObject>();
+  const float targetHeight = ComputePeaTargetHeight();
+  auto pea = std::make_shared<Bullet>(peashooter->GetGridRow(), targetHeight);
+
   auto peaImage = std::make_shared<Util::Image>(
       "Resources/gameplay/plants/peashooter/peashooter_bullet/pea.png");
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
-  const float targetHeight = ComputePeaTargetHeight();
   const glm::vec2 peaNaturalSize = peaImage->GetSize();
   if (peaNaturalSize.y > 0.0F) {
     const float scale = targetHeight / peaNaturalSize.y;
@@ -2037,12 +2038,8 @@ void App::SpawnPeaFromPeashooter(
       (cellHeightPercent * 0.05F / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
   pea->m_Transform.translation.y += upwardOffsetPx;
 
-  ActivePea activePea;
-  activePea.object = pea;
-  activePea.row = peashooter->GetGridRow();
-  activePea.type = ActivePea::ProjectileType::PEASHOOTER;
   m_Root.AddChild(pea);
-  m_Peas.push_back(activePea);
+  m_PeaBullets.push_back(pea);
 }
 
 void App::SpawnShroomBulletFromPuffshroom(
@@ -2051,14 +2048,15 @@ void App::SpawnShroomBulletFromPuffshroom(
     return;
   }
 
-  auto bullet = std::make_shared<Util::GameObject>();
+  const float targetHeight = ComputePeaTargetHeight();
+  auto bullet = std::make_shared<Bullet>(puff->GetGridRow(), targetHeight);
+
   auto bulletAnim = std::make_shared<Util::Animation>(
       m_ShroomBulletFramePaths, true,
       static_cast<std::size_t>(m_ShroomBulletFrameIntervalMs), true, 0);
   bullet->SetDrawable(bulletAnim);
   bullet->SetZIndex(1.2F);
 
-  const float targetHeight = ComputePeaTargetHeight();
   const glm::vec2 bulletNaturalSize = bulletAnim->GetSize();
   if (bulletNaturalSize.y > 0.0F) {
     const float scale = targetHeight / bulletNaturalSize.y;
@@ -2074,12 +2072,8 @@ void App::SpawnShroomBulletFromPuffshroom(
                                  static_cast<float>(WINDOW_HEIGHT));
   bullet->m_Transform.translation.y += upwardOffsetPx;
 
-  ActivePea activePea;
-  activePea.object = bullet;
-  activePea.row = puff->GetGridRow();
-  activePea.type = ActivePea::ProjectileType::PUFFSHROOM;
   m_Root.AddChild(bullet);
-  m_Peas.push_back(activePea);
+  m_ShroomBullets.push_back(bullet);
 }
 
 void App::SpawnFumeshroomAttackEffect(const std::shared_ptr<Fumeshroom> &fume) {
@@ -2204,22 +2198,21 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
     }
   }
 
-  // Handle bullet movement and collision detection
+  // Handle shroom-bullet movement, collision, and hit-animation lifecycle.
   constexpr float kBulletSpeedPxPerSec =
-      0.225F * static_cast<float>(WINDOW_WIDTH); // Half of original speed
-  constexpr float kHitDisplayDurationSec = 0.2F;
+      0.225F * static_cast<float>(WINDOW_WIDTH);
 
-  for (std::size_t i = 0; i < m_Peas.size();) {
-    auto &pea = m_Peas[i];
-    if (!pea.hitting) {
-      pea.object->m_Transform.translation.x += kBulletSpeedPxPerSec * deltaTime;
+  for (std::size_t i = 0; i < m_ShroomBullets.size();) {
+    auto &bullet = m_ShroomBullets[i];
+    if (!bullet->IsHitting()) {
+      bullet->m_Transform.translation.x += kBulletSpeedPxPerSec * deltaTime;
 
       const bool outOfRight =
-          pea.object->m_Transform.translation.x >
+          bullet->m_Transform.translation.x >
           (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
       if (outOfRight) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        m_Root.RemoveChild(bullet);
+        m_ShroomBullets.erase(m_ShroomBullets.begin() + static_cast<long>(i));
         continue;
       }
 
@@ -2229,72 +2222,45 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPolevaultingZombie =
+        const bool isPole =
             dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
+            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                   : CollisionSystem::CollisionBoxType::BasicZombie;
 
-        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
-            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
-
-        if (isHit) {
+        if (CollisionSystem::CheckAABBCollisionSameRow(
+                bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
+                *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
+                zombieType)) {
           hitZombie = &zombie;
           break;
         }
       }
 
       if (hitZombie != nullptr) {
-        hitZombie->object->TakeDamage(20);
+        hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPolevaultingZombie =
+        const bool isPole =
             dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
             nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
-        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                   : CollisionSystem::CollisionBoxType::BasicZombie;
+        const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
-        pea.object->m_Transform.translation.x =
-            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
-        pea.object->m_Transform.translation.y =
-            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
-
-        // Use hit animation with 0.2 second display time
-        auto hitAnim = std::make_shared<Util::Animation>(
-            m_ShroomBulletHitFramePaths, false,
-            static_cast<std::size_t>(m_ShroomBulletHitFrameIntervalMs), false,
-            0);
-        pea.object->SetDrawable(hitAnim);
-
-        const glm::vec2 bulletSize = pea.object->GetScaledSize();
-        const glm::vec2 hitSize = hitAnim->GetSize();
-        if (hitSize.y > 0.0F && bulletSize.y > 0.0F) {
-          const float scale = bulletSize.y / hitSize.y;
-          pea.object->m_Transform.scale = {scale, scale};
-        }
-
-        pea.hitting = true;
-        pea.hitAnimation = hitAnim;
+        const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
+                                     (bounds.minY + bounds.maxY) * 0.5F};
+        bullet->StartHit(hitCenter, m_ShroomBulletHitFramePaths,
+                         static_cast<std::size_t>(m_ShroomBulletHitFrameIntervalMs));
       }
       ++i;
       continue;
     }
 
-    // Handle hit animation display (0.2 seconds)
-    if (pea.hitAnimation != nullptr) {
-      // Check if hit display time has elapsed
-      const float hitElapsed =
-          pea.hitAnimation->GetCurrentFrameIndex() *
-          (static_cast<float>(m_ShroomBulletHitFrameIntervalMs) / 1000.0F);
-      if (hitElapsed >= kHitDisplayDurationSec) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
-        continue;
-      }
+    if (bullet->TickHit(deltaTime)) {
+      m_Root.RemoveChild(bullet);
+      m_ShroomBullets.erase(m_ShroomBullets.begin() + static_cast<long>(i));
+      continue;
     }
 
     ++i;
@@ -2468,21 +2434,21 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
     }
   }
 
+  // Handle pea-bullet movement, collision, and hit-animation lifecycle.
   constexpr float kPeaSpeedPxPerSec = 0.225F * static_cast<float>(WINDOW_WIDTH);
   constexpr std::size_t kHitFrameIntervalMs = 50;
-  constexpr float kPuffHitLifetimeSec = 0.2F;
 
-  for (std::size_t i = 0; i < m_Peas.size();) {
-    auto &pea = m_Peas[i];
-    if (!pea.hitting) {
-      pea.object->m_Transform.translation.x += kPeaSpeedPxPerSec * deltaTime;
+  for (std::size_t i = 0; i < m_PeaBullets.size();) {
+    auto &bullet = m_PeaBullets[i];
+    if (!bullet->IsHitting()) {
+      bullet->m_Transform.translation.x += kPeaSpeedPxPerSec * deltaTime;
 
       const bool outOfRight =
-          pea.object->m_Transform.translation.x >
+          bullet->m_Transform.translation.x >
           (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
       if (outOfRight) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        m_Root.RemoveChild(bullet);
+        m_PeaBullets.erase(m_PeaBullets.begin() + static_cast<long>(i));
         continue;
       }
 
@@ -2492,76 +2458,43 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPolevaultingZombie =
+        const bool isPole =
             dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
+            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                   : CollisionSystem::CollisionBoxType::BasicZombie;
 
-        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
-            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
-
-        if (isHit) {
+        if (CollisionSystem::CheckAABBCollisionSameRow(
+                bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
+                *zombie.object,
+                CollisionSystem::CollisionBoxType::PeaProjectile, zombieType)) {
           hitZombie = &zombie;
           break;
         }
       }
 
       if (hitZombie != nullptr) {
-        hitZombie->object->TakeDamage(20);
+        hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPolevaultingZombie =
+        const bool isPole =
             dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
             nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
-        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
+                   : CollisionSystem::CollisionBoxType::BasicZombie;
+        const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
-        pea.object->m_Transform.translation.x =
-            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
-        pea.object->m_Transform.translation.y =
-            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
-
-        const auto &hitFrames =
-            pea.type == ActivePea::ProjectileType::PUFFSHROOM
-                ? m_ShroomBulletHitFramePaths
-                : m_PeaHitFramePaths;
-        auto hitAnim = std::make_shared<Util::Animation>(
-            hitFrames, true, kHitFrameIntervalMs, false, 0);
-        pea.object->SetDrawable(hitAnim);
-
-        const glm::vec2 peaSize = pea.object->GetScaledSize();
-        const glm::vec2 hitSize = hitAnim->GetSize();
-        if (hitSize.y > 0.0F && peaSize.y > 0.0F) {
-          const float scale = peaSize.y / hitSize.y;
-          pea.object->m_Transform.scale = {scale, scale};
-        }
-
-        pea.hitting = true;
-        pea.hitAnimation = hitAnim;
-        pea.hitElapsedSec = 0.0F;
+        const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
+                                     (bounds.minY + bounds.maxY) * 0.5F};
+        bullet->StartHit(hitCenter, m_PeaHitFramePaths, kHitFrameIntervalMs);
       }
       ++i;
       continue;
     }
 
-    if (pea.hitting) {
-      pea.hitElapsedSec += deltaTime;
-      if (pea.hitElapsedSec >= kPuffHitLifetimeSec ||
-          (pea.hitAnimation != nullptr &&
-           pea.hitAnimation->GetState() == Util::Animation::State::ENDED)) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
-        continue;
-      }
-    } else if (pea.hitAnimation != nullptr &&
-               pea.hitAnimation->GetState() == Util::Animation::State::ENDED) {
-      m_Root.RemoveChild(pea.object);
-      m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+    if (bullet->TickHit(deltaTime)) {
+      m_Root.RemoveChild(bullet);
+      m_PeaBullets.erase(m_PeaBullets.begin() + static_cast<long>(i));
       continue;
     }
 
@@ -3273,7 +3206,8 @@ void App::ResetLevelRuntimeState() {
   m_Puffshrooms.fill(nullptr);
   m_Fumeshrooms.fill(nullptr);
   m_Nuts.fill(nullptr);
-  m_Peas.clear();
+  m_PeaBullets.clear();
+  m_ShroomBullets.clear();
   m_FumeshroomEffects.clear();
   m_ActiveZombies.clear();
   m_Suns.clear();
