@@ -12,6 +12,8 @@ public:
   Peashooter(const std::vector<std::string> &framePaths,
              std::size_t frameIntervalMs, float targetHeightPx);
 
+  bool CanShoot() const override { return true; }
+
   bool StartAttack(const std::vector<std::string> &framePaths,
                    std::size_t frameIntervalMs);
   bool UpdateAttackStateAndCheckShoot();

@@ -9,6 +9,8 @@ public:
   Puffshroom(const std::vector<std::string> &framePaths,
              std::size_t frameIntervalMs, float targetHeightPx);
 
+  bool CanShoot() const override { return true; }
+
 private:
   void ApplyScaleForCurrentDrawable(float targetHeightPx);
   std::shared_ptr<Util::Animation> m_IdleAnimation = nullptr;

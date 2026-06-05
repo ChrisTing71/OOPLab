@@ -433,70 +433,12 @@ bool App::PrepareLawnMowerFrames() {
                               m_LawnMowerFrameIntervalMs);
 }
 
-void App::BuildZombieSpawnPlan(const LevelWaveConfig &waveConfig) {
-  m_ZombieWavePlan.clear();
-  float timelineSec = 0.0F;
-
-  for (const auto &phase : waveConfig.phases) {
-    timelineSec += phase.startDelaySec;
-    for (int i = 0; i < phase.repeat; ++i) {
-      ZombieWavePhaseConfig phaseCopy = phase;
-      if (phaseCopy.zombieTypes.empty()) {
-        phaseCopy.zombieTypes = {phaseCopy.zombieType};
-      }
-      phaseCopy.zombieTypes = BuildZombieTypeSequence(phaseCopy);
-      m_ZombieWavePlan.push_back({
-          phase.id,
-          phase.type,
-          phase.zombieType,
-          phaseCopy.zombieTypes,
-          phaseCopy.randomOrder,
-          timelineSec,
-          phase.zombiesPerWave,
-          phase.spawnIntervalSec,
-          phase.waitUntilClear,
-      });
-      timelineSec += phase.waveIntervalSec;
-    }
-  }
-
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
-}
-
 int App::GetPlannedZombieCount() const {
   int totalZombies = 0;
-  for (const auto &waveGroup : m_ZombieWavePlan) {
+  for (const auto &waveGroup : m_WaveController.GetPlan()) {
     totalZombies += glm::max(0, waveGroup.zombieCount);
   }
   return totalZombies;
-}
-
-std::vector<std::string>
-App::BuildZombieTypeSequence(const ZombieWavePhaseConfig &phase) const {
-  std::vector<std::string> sequence;
-  sequence.reserve(static_cast<std::size_t>(phase.zombiesPerWave));
-
-  if (!phase.zombieTypes.empty()) {
-    for (int index = 0; index < phase.zombiesPerWave; ++index) {
-      sequence.push_back(phase.zombieTypes[static_cast<std::size_t>(index) %
-                                           phase.zombieTypes.size()]);
-    }
-  } else {
-    const std::string zombieType =
-        phase.zombieType.empty() ? "basic" : phase.zombieType;
-    for (int index = 0; index < phase.zombiesPerWave; ++index) {
-      sequence.push_back(zombieType);
-    }
-  }
-
-  if (phase.randomOrder && sequence.size() > 1) {
-    std::shuffle(sequence.begin(), sequence.end(), m_Random);
-  }
-
-  return sequence;
 }
 
 const std::vector<std::string> &
@@ -607,7 +549,7 @@ void App::PrepareBasicZombieStandPreview() {
   }
   std::uniform_int_distribution<int> yIndexDist(
       0, static_cast<int>(yCandidates.size()) - 1);
-  for (const auto &waveGroup : m_ZombieWavePlan) {
+  for (const auto &waveGroup : m_WaveController.GetPlan()) {
     for (int index = 0; index < waveGroup.zombieCount; ++index) {
       const float xPercent = xDist(m_Random);
       const float yPercent =
@@ -1454,136 +1396,6 @@ bool App::RemovePlantAtGridCell(const int row, const int column) {
   return removed;
 }
 
-void App::SpawnFallingSun() {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kSpawnYPercent = 20.0F;
-  constexpr float kStopMinYPercent = 52.0F;
-  constexpr float kStopMaxYPercent = 78.0F;
-  std::uniform_real_distribution<float> xPercentDist(8.0F, 92.0F);
-  std::uniform_real_distribution<float> stopYPercentDist(kStopMinYPercent,
-                                                         kStopMaxYPercent);
-
-  const float spawnXPercent = xPercentDist(m_Random);
-  const float spawnPixelX =
-      (spawnXPercent / 100.0F) * static_cast<float>(WINDOW_WIDTH);
-  const float spawnPixelY =
-      (kSpawnYPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-
-  const float localX = spawnPixelX - static_cast<float>(WINDOW_WIDTH) * 0.5F;
-  const float localY = static_cast<float>(WINDOW_HEIGHT) * 0.5F - spawnPixelY;
-  const float stopPixelY =
-      (stopYPercentDist(m_Random) / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  const float stopLocalY =
-      static_cast<float>(WINDOW_HEIGHT) * 0.5F - stopPixelY;
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-  sun->m_Transform.translation = {localX, localY};
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.falling = true;
-  activeSun.stopped = false;
-  activeSun.stopLocalY = stopLocalY;
-  activeSun.fromSky = true;
-  activeSun.expires = true;
-  activeSun.value = 25;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::SpawnSunFromSunflower(const std::shared_ptr<Sunflower> &sunflower) {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kPopDistancePercent = 7.0F;
-  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-
-  if (sunflower == nullptr) {
-    return;
-  }
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-
-  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
-  const glm::vec2 startPosition = sunflower->m_Transform.translation +
-                                  sunflower->GetSunSpawnOffset() +
-                                  rootToScreenOffset;
-  const glm::vec2 targetPosition =
-      sunflower->m_Transform.translation +
-      sunflower->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
-                                       static_cast<float>(WINDOW_HEIGHT)) +
-      rootToScreenOffset;
-  sun->m_Transform.translation = startPosition;
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.producer = sunflower;
-  activeSun.value = 25;
-  activeSun.falling = false;
-  activeSun.expires = false;
-  activeSun.rising = true;
-  activeSun.riseStart = startPosition;
-  activeSun.riseTarget = targetPosition;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::SpawnSunFromSunshroom(const std::shared_ptr<Sunshroom> &sunshroom,
-                                const int sunValue) {
-  constexpr float kSunHeightPercent = 10.0F;
-  constexpr float kPopDistancePercent = 7.0F;
-  constexpr float kCameraOffsetY = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-
-  if (sunshroom == nullptr) {
-    return;
-  }
-
-  const float sunHeightPx =
-      (kSunHeightPercent / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
-  auto sun = std::make_shared<Sun>(sunHeightPx);
-
-  const glm::vec2 rootToScreenOffset = {m_CameraCurrentX, kCameraOffsetY};
-  const glm::vec2 startPosition = sunshroom->m_Transform.translation +
-                                  sunshroom->GetSunSpawnOffset() +
-                                  rootToScreenOffset;
-  const glm::vec2 targetPosition =
-      sunshroom->m_Transform.translation +
-      sunshroom->GetSunPopTargetOffset((kPopDistancePercent / 100.0F) *
-                                       static_cast<float>(WINDOW_HEIGHT)) +
-      rootToScreenOffset;
-  sun->m_Transform.translation = startPosition;
-
-  ActiveSun activeSun;
-  activeSun.object = sun;
-  activeSun.producer = sunshroom;
-  activeSun.value = sunValue;
-  activeSun.falling = false;
-  activeSun.expires = false;
-  activeSun.rising = true;
-  activeSun.riseStart = startPosition;
-  activeSun.riseTarget = targetPosition;
-  m_UIRoot.AddChild(sun);
-  m_Suns.push_back(activeSun);
-}
-
-void App::UpdateSunshrooms(const float deltaTime) {
-  if (deltaTime <= 0.0F) {
-    return;
-  }
-
-  for (const auto &sunshroom : m_Sunshrooms) {
-    if (sunshroom == nullptr || sunshroom->IsDead()) {
-      continue;
-    }
-
-    sunshroom->Update(deltaTime);
-    if (sunshroom->ShouldProduceSun(deltaTime)) {
-      SpawnSunFromSunshroom(sunshroom, sunshroom->GetProducedSunValue());
-    }
-  }
-}
 
 glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
                                             const float sourceY) const {
@@ -1607,111 +1419,18 @@ glm::vec2 App::CardSlotLocalFromSourceCoord(const float sourceX,
 }
 
 void App::UpdateSuns(const float deltaTime) {
-  // Only spawn automatic falling sun during daytime
   const LevelConfig &levelConfig = m_LevelManager->GetCurrentLevel();
-  const bool isNightScene = (levelConfig.sceneType == SceneType::NIGHT);
+  const bool isNight = (levelConfig.sceneType == SceneType::NIGHT);
+  const glm::vec2 collectTarget =
+      CardSlotLocalFromSourceCoord((17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
 
-  if (!isNightScene) {
-    m_SunSpawnCountdown -= deltaTime;
-    if (m_SunSpawnCountdown <= 0.0F) {
-      SpawnFallingSun();
-      m_SunSpawnCountdown = 8.0F;
-    }
-  }
+  std::vector<std::shared_ptr<Sunflower>> sunflowers(m_Sunflowers.begin(),
+                                                     m_Sunflowers.end());
+  std::vector<std::shared_ptr<Sunshroom>> sunshrooms(m_Sunshrooms.begin(),
+                                                     m_Sunshrooms.end());
 
-  for (const auto &sunflower : m_Sunflowers) {
-    if (sunflower == nullptr || !sunflower->ShouldProduceSun(deltaTime)) {
-      continue;
-    }
-
-    SpawnSunFromSunflower(sunflower);
-  }
-
-  const float dropSpeedPx = 0.05F * static_cast<float>(WINDOW_HEIGHT);
-  const glm::vec2 collectTargetLocal = CardSlotLocalFromSourceCoord(
-      (17.0F + 92.0F) * 0.5F, (15.0F + 91.0F) * 0.5F);
-  constexpr float kCollectMoveSeconds = 0.30F;
-  constexpr float kRiseMoveSeconds = 0.35F;
-
-  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    auto &sun = m_Suns[i];
-
-    if (sun.collecting) {
-      sun.collectElapsed += deltaTime;
-      const float t =
-          glm::clamp(sun.collectElapsed / kCollectMoveSeconds, 0.0F, 1.0F);
-      sun.object->m_Transform.translation = {
-          Lerp(sun.collectStart.x, collectTargetLocal.x, t),
-          Lerp(sun.collectStart.y, collectTargetLocal.y, t),
-      };
-      continue;
-    }
-
-    sun.aliveSeconds += deltaTime;
-
-    if (sun.rising) {
-      sun.riseElapsed += deltaTime;
-      const float t =
-          glm::clamp(sun.riseElapsed / kRiseMoveSeconds, 0.0F, 1.0F);
-      const float easedT = 1.0F - (1.0F - t) * (1.0F - t);
-      sun.object->m_Transform.translation = {
-          Lerp(sun.riseStart.x, sun.riseTarget.x, easedT),
-          Lerp(sun.riseStart.y, sun.riseTarget.y, easedT),
-      };
-      if (t >= 1.0F) {
-        sun.rising = false;
-      }
-      continue;
-    }
-
-    if (sun.falling) {
-      sun.object->m_Transform.translation.y -= dropSpeedPx * deltaTime;
-
-      if (sun.fromSky && !sun.stopped &&
-          sun.object->m_Transform.translation.y <= sun.stopLocalY) {
-        sun.object->m_Transform.translation.y = sun.stopLocalY;
-        sun.falling = false;
-        sun.stopped = true;
-        sun.stoppedSeconds = 0.0F;
-      }
-    }
-
-    if (sun.fromSky && sun.stopped) {
-      sun.stoppedSeconds += deltaTime;
-    }
-  }
-
-  for (std::size_t i = 0; i < m_Suns.size();) {
-    const auto &sun = m_Suns[i];
-
-    if (sun.collecting && sun.collectElapsed >= kCollectMoveSeconds) {
-      // Capture needed data before modifying `m_Suns` (which may invalidate
-      // references/iterators). Accessing `sun` after RemoveSunAt() is UB.
-      const int collectedValue = sun.value;
-      const auto producerWeak = sun.producer;
-
-      if (const auto producer = producerWeak.lock(); producer != nullptr) {
-        producer->OnProducedSunCollected();
-      }
-
-      RemoveSunAt(i);
-      m_Sunlight += collectedValue;
-      continue;
-    }
-
-    const glm::vec2 sunSize = sun.object->GetScaledSize();
-    const float centerY = static_cast<float>(WINDOW_HEIGHT) * 0.5F -
-                          sun.object->m_Transform.translation.y;
-    const float sunTopPixel = centerY - sunSize.y * 0.5F;
-    if (!sun.collecting && sun.expires &&
-        ((sun.fromSky && sun.stopped && sun.stoppedSeconds > 5.0F) ||
-         (sun.falling && sunTopPixel > static_cast<float>(WINDOW_HEIGHT)))) {
-      RemoveSunAt(i);
-      continue;
-    }
-
-    ++i;
-  }
+  m_Sunlight += m_SunManager.Update(deltaTime, collectTarget, isNight,
+                                    m_CameraCurrentX, sunflowers, sunshrooms);
 }
 
 void App::SetupBasicZombieStand() {
@@ -1749,63 +1468,20 @@ void App::UpdateBasicZombie(const float deltaTime) {
     ++i;
   }
 
-  if (!m_WaveSystemStarted) {
+  if (!m_WaveController.IsStarted()) {
     return;
   }
 
-  m_WaveElapsedSec += deltaTime;
+  bool triggerHuge = false;
+  const auto spawnRequests = m_WaveController.Tick(
+      deltaTime, HasAliveZombie(), m_HugeWaveBannerRemainingSec, triggerHuge);
 
-  if (!m_WaveGroupActive && m_CurrentWaveGroupIndex < m_ZombieWavePlan.size()) {
-    const ZombieWaveSpawnGroup &candidate =
-        m_ZombieWavePlan[m_CurrentWaveGroupIndex];
-    const bool hasReachedStart = m_WaveElapsedSec >= candidate.earliestStartSec;
-    const bool clearConditionOk =
-        !candidate.waitUntilClear || !HasAliveZombie();
-    const bool isHugeWave =
-        (candidate.phaseId == "huge_wave") || (candidate.phaseType == "huge");
-
-    if (hasReachedStart && clearConditionOk) {
-      if (isHugeWave) {
-        TriggerHugeWaveBanner();
-      }
-      if (isHugeWave && m_HugeWaveBannerRemainingSec > 0.0F) {
-        return;
-      }
-      m_CurrentWaveGroup = candidate;
-      m_WaveGroupActive = true;
-      m_WaveGroupSpawnedCount = 0;
-      m_WaveGroupSpawnTimer = 0.0F;
-    }
+  if (triggerHuge) {
+    TriggerHugeWaveBanner();
   }
 
-  if (!m_WaveGroupActive) {
-    return;
-  }
-
-  m_WaveGroupSpawnTimer -= deltaTime;
-  while (m_WaveGroupSpawnedCount < m_CurrentWaveGroup.zombieCount &&
-         m_WaveGroupSpawnTimer <= 0.0F) {
-    const int spawnRow = PickSpawnRowForWaveSpawn();
-    const std::string zombieType =
-        m_CurrentWaveGroup.zombieTypes.empty()
-            ? m_CurrentWaveGroup.zombieType
-            : m_CurrentWaveGroup
-                  .zombieTypes[static_cast<std::size_t>(
-                                   m_WaveGroupSpawnedCount) %
-                               m_CurrentWaveGroup.zombieTypes.size()];
-    SpawnZombieAtRow(spawnRow, zombieType);
-    ++m_WaveGroupSpawnedCount;
-
-    if (m_CurrentWaveGroup.spawnIntervalSec <= 0.0F) {
-      m_WaveGroupSpawnTimer = 0.0F;
-    } else {
-      m_WaveGroupSpawnTimer += m_CurrentWaveGroup.spawnIntervalSec;
-    }
-  }
-
-  if (m_WaveGroupSpawnedCount >= m_CurrentWaveGroup.zombieCount) {
-    m_WaveGroupActive = false;
-    ++m_CurrentWaveGroupIndex;
+  for (const auto &req : spawnRequests) {
+    SpawnZombieAtRow(PickSpawnRowForWaveSpawn(), req.zombieType);
   }
 }
 
@@ -2015,13 +1691,14 @@ void App::SpawnPeaFromPeashooter(
     return;
   }
 
-  auto pea = std::make_shared<Util::GameObject>();
+  const float targetHeight = ComputePeaTargetHeight();
+  auto pea = std::make_shared<Bullet>(peashooter->GetGridRow(), targetHeight);
+
   auto peaImage = std::make_shared<Util::Image>(
       "Resources/gameplay/plants/peashooter/peashooter_bullet/pea.png");
   pea->SetDrawable(peaImage);
   pea->SetZIndex(1.2F);
 
-  const float targetHeight = ComputePeaTargetHeight();
   const glm::vec2 peaNaturalSize = peaImage->GetSize();
   if (peaNaturalSize.y > 0.0F) {
     const float scale = targetHeight / peaNaturalSize.y;
@@ -2037,12 +1714,8 @@ void App::SpawnPeaFromPeashooter(
       (cellHeightPercent * 0.05F / 100.0F) * static_cast<float>(WINDOW_HEIGHT);
   pea->m_Transform.translation.y += upwardOffsetPx;
 
-  ActivePea activePea;
-  activePea.object = pea;
-  activePea.row = peashooter->GetGridRow();
-  activePea.type = ActivePea::ProjectileType::PEASHOOTER;
   m_Root.AddChild(pea);
-  m_Peas.push_back(activePea);
+  m_PeaBullets.push_back(pea);
 }
 
 void App::SpawnShroomBulletFromPuffshroom(
@@ -2051,14 +1724,15 @@ void App::SpawnShroomBulletFromPuffshroom(
     return;
   }
 
-  auto bullet = std::make_shared<Util::GameObject>();
+  const float targetHeight = ComputePeaTargetHeight();
+  auto bullet = std::make_shared<Bullet>(puff->GetGridRow(), targetHeight);
+
   auto bulletAnim = std::make_shared<Util::Animation>(
       m_ShroomBulletFramePaths, true,
       static_cast<std::size_t>(m_ShroomBulletFrameIntervalMs), true, 0);
   bullet->SetDrawable(bulletAnim);
   bullet->SetZIndex(1.2F);
 
-  const float targetHeight = ComputePeaTargetHeight();
   const glm::vec2 bulletNaturalSize = bulletAnim->GetSize();
   if (bulletNaturalSize.y > 0.0F) {
     const float scale = targetHeight / bulletNaturalSize.y;
@@ -2074,12 +1748,8 @@ void App::SpawnShroomBulletFromPuffshroom(
                                  static_cast<float>(WINDOW_HEIGHT));
   bullet->m_Transform.translation.y += upwardOffsetPx;
 
-  ActivePea activePea;
-  activePea.object = bullet;
-  activePea.row = puff->GetGridRow();
-  activePea.type = ActivePea::ProjectileType::PUFFSHROOM;
   m_Root.AddChild(bullet);
-  m_Peas.push_back(activePea);
+  m_ShroomBullets.push_back(bullet);
 }
 
 void App::SpawnFumeshroomAttackEffect(const std::shared_ptr<Fumeshroom> &fume) {
@@ -2204,22 +1874,21 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
     }
   }
 
-  // Handle bullet movement and collision detection
+  // Handle shroom-bullet movement, collision, and hit-animation lifecycle.
   constexpr float kBulletSpeedPxPerSec =
-      0.225F * static_cast<float>(WINDOW_WIDTH); // Half of original speed
-  constexpr float kHitDisplayDurationSec = 0.2F;
+      0.225F * static_cast<float>(WINDOW_WIDTH);
 
-  for (std::size_t i = 0; i < m_Peas.size();) {
-    auto &pea = m_Peas[i];
-    if (!pea.hitting) {
-      pea.object->m_Transform.translation.x += kBulletSpeedPxPerSec * deltaTime;
+  for (std::size_t i = 0; i < m_ShroomBullets.size();) {
+    auto &bullet = m_ShroomBullets[i];
+    if (!bullet->IsHitting()) {
+      bullet->m_Transform.translation.x += kBulletSpeedPxPerSec * deltaTime;
 
       const bool outOfRight =
-          pea.object->m_Transform.translation.x >
+          bullet->m_Transform.translation.x >
           (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
       if (outOfRight) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        m_Root.RemoveChild(bullet);
+        m_ShroomBullets.erase(m_ShroomBullets.begin() + static_cast<long>(i));
         continue;
       }
 
@@ -2229,72 +1898,38 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPolevaultingZombie =
-            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
-        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
-            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
-
-        if (isHit) {
+        if (CollisionSystem::CheckAABBCollisionSameRow(
+                bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
+                *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
+                zombieType)) {
           hitZombie = &zombie;
           break;
         }
       }
 
       if (hitZombie != nullptr) {
-        hitZombie->object->TakeDamage(20);
+        hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPolevaultingZombie =
-            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
-            nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
-        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            CollisionSystem::ZombieCollisionBoxType(*hitZombie->object);
+        const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
-        pea.object->m_Transform.translation.x =
-            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
-        pea.object->m_Transform.translation.y =
-            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
-
-        // Use hit animation with 0.2 second display time
-        auto hitAnim = std::make_shared<Util::Animation>(
-            m_ShroomBulletHitFramePaths, false,
-            static_cast<std::size_t>(m_ShroomBulletHitFrameIntervalMs), false,
-            0);
-        pea.object->SetDrawable(hitAnim);
-
-        const glm::vec2 bulletSize = pea.object->GetScaledSize();
-        const glm::vec2 hitSize = hitAnim->GetSize();
-        if (hitSize.y > 0.0F && bulletSize.y > 0.0F) {
-          const float scale = bulletSize.y / hitSize.y;
-          pea.object->m_Transform.scale = {scale, scale};
-        }
-
-        pea.hitting = true;
-        pea.hitAnimation = hitAnim;
+        const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
+                                     (bounds.minY + bounds.maxY) * 0.5F};
+        bullet->StartHit(hitCenter, m_ShroomBulletHitFramePaths,
+                         static_cast<std::size_t>(m_ShroomBulletHitFrameIntervalMs));
       }
       ++i;
       continue;
     }
 
-    // Handle hit animation display (0.2 seconds)
-    if (pea.hitAnimation != nullptr) {
-      // Check if hit display time has elapsed
-      const float hitElapsed =
-          pea.hitAnimation->GetCurrentFrameIndex() *
-          (static_cast<float>(m_ShroomBulletHitFrameIntervalMs) / 1000.0F);
-      if (hitElapsed >= kHitDisplayDurationSec) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
-        continue;
-      }
+    if (bullet->TickHit(deltaTime)) {
+      m_Root.RemoveChild(bullet);
+      m_ShroomBullets.erase(m_ShroomBullets.begin() + static_cast<long>(i));
+      continue;
     }
 
     ++i;
@@ -2408,17 +2043,13 @@ void App::UpdateFumeshroomCombat(const float deltaTime) {
       }
 
       const auto zombieType =
-          (dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr)
-              ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-              : CollisionSystem::CollisionBoxType::BasicZombie;
+          CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
-      const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-          effect.row, zombie.object->GetGridRow(), *effect.object,
-          *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
-          zombieType);
-
-      if (isHit) {
-        zombie.object->TakeDamage(20);
+      if (CollisionSystem::CheckAABBCollisionSameRow(
+              effect.row, zombie.object->GetGridRow(), *effect.object,
+              *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
+              zombieType)) {
+        zombie.object->TakeDamage(Bullet::kDamage);
         effect.damagedZombies.insert(zombie.object.get());
       }
     }
@@ -2468,21 +2099,21 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
     }
   }
 
+  // Handle pea-bullet movement, collision, and hit-animation lifecycle.
   constexpr float kPeaSpeedPxPerSec = 0.225F * static_cast<float>(WINDOW_WIDTH);
   constexpr std::size_t kHitFrameIntervalMs = 50;
-  constexpr float kPuffHitLifetimeSec = 0.2F;
 
-  for (std::size_t i = 0; i < m_Peas.size();) {
-    auto &pea = m_Peas[i];
-    if (!pea.hitting) {
-      pea.object->m_Transform.translation.x += kPeaSpeedPxPerSec * deltaTime;
+  for (std::size_t i = 0; i < m_PeaBullets.size();) {
+    auto &bullet = m_PeaBullets[i];
+    if (!bullet->IsHitting()) {
+      bullet->m_Transform.translation.x += kPeaSpeedPxPerSec * deltaTime;
 
       const bool outOfRight =
-          pea.object->m_Transform.translation.x >
+          bullet->m_Transform.translation.x >
           (static_cast<float>(WINDOW_WIDTH) * 0.6F - m_CameraCurrentX);
       if (outOfRight) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+        m_Root.RemoveChild(bullet);
+        m_PeaBullets.erase(m_PeaBullets.begin() + static_cast<long>(i));
         continue;
       }
 
@@ -2492,76 +2123,36 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPolevaultingZombie =
-            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
-        const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-            pea.row, zombie.object->GetGridRow(), *pea.object, *zombie.object,
-            CollisionSystem::CollisionBoxType::PeaProjectile, zombieType);
-
-        if (isHit) {
+        if (CollisionSystem::CheckAABBCollisionSameRow(
+                bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
+                *zombie.object,
+                CollisionSystem::CollisionBoxType::PeaProjectile, zombieType)) {
           hitZombie = &zombie;
           break;
         }
       }
 
       if (hitZombie != nullptr) {
-        hitZombie->object->TakeDamage(20);
+        hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPolevaultingZombie =
-            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
-            nullptr;
         const auto zombieType =
-            isPolevaultingZombie
-                ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                : CollisionSystem::CollisionBoxType::BasicZombie;
-        const auto zombieBounds = CollisionSystem::GetCollisionBoxBounds(
+            CollisionSystem::ZombieCollisionBoxType(*hitZombie->object);
+        const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
-        pea.object->m_Transform.translation.x =
-            (zombieBounds.minX + zombieBounds.maxX) * 0.5F;
-        pea.object->m_Transform.translation.y =
-            (zombieBounds.minY + zombieBounds.maxY) * 0.5F;
-
-        const auto &hitFrames =
-            pea.type == ActivePea::ProjectileType::PUFFSHROOM
-                ? m_ShroomBulletHitFramePaths
-                : m_PeaHitFramePaths;
-        auto hitAnim = std::make_shared<Util::Animation>(
-            hitFrames, true, kHitFrameIntervalMs, false, 0);
-        pea.object->SetDrawable(hitAnim);
-
-        const glm::vec2 peaSize = pea.object->GetScaledSize();
-        const glm::vec2 hitSize = hitAnim->GetSize();
-        if (hitSize.y > 0.0F && peaSize.y > 0.0F) {
-          const float scale = peaSize.y / hitSize.y;
-          pea.object->m_Transform.scale = {scale, scale};
-        }
-
-        pea.hitting = true;
-        pea.hitAnimation = hitAnim;
-        pea.hitElapsedSec = 0.0F;
+        const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
+                                     (bounds.minY + bounds.maxY) * 0.5F};
+        bullet->StartHit(hitCenter, m_PeaHitFramePaths, kHitFrameIntervalMs);
       }
       ++i;
       continue;
     }
 
-    if (pea.hitting) {
-      pea.hitElapsedSec += deltaTime;
-      if (pea.hitElapsedSec >= kPuffHitLifetimeSec ||
-          (pea.hitAnimation != nullptr &&
-           pea.hitAnimation->GetState() == Util::Animation::State::ENDED)) {
-        m_Root.RemoveChild(pea.object);
-        m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
-        continue;
-      }
-    } else if (pea.hitAnimation != nullptr &&
-               pea.hitAnimation->GetState() == Util::Animation::State::ENDED) {
-      m_Root.RemoveChild(pea.object);
-      m_Peas.erase(m_Peas.begin() + static_cast<long>(i));
+    if (bullet->TickHit(deltaTime)) {
+      m_Root.RemoveChild(bullet);
+      m_PeaBullets.erase(m_PeaBullets.begin() + static_cast<long>(i));
       continue;
     }
 
@@ -2570,25 +2161,7 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
 }
 
 bool App::TryCollectSunAt(const float pixelX, const float pixelY) {
-  for (std::size_t i = 0; i < m_Suns.size(); ++i) {
-    auto &sun = m_Suns[i];
-    if (!CollisionSystem::IsPixelInsideObject(sun.object, pixelX, pixelY)) {
-      continue;
-    }
-
-    if (sun.collecting) {
-      return true;
-    }
-
-    sun.collecting = true;
-    sun.collectElapsed = 0.0F;
-    sun.collectStart = sun.object->m_Transform.translation;
-    sun.rising = false;
-    sun.falling = false;
-    return true;
-  }
-
-  return false;
+  return m_SunManager.TryCollect(pixelX, pixelY);
 }
 
 void App::RemoveDeadPlants() {
@@ -2766,10 +2339,6 @@ void App::StartPlantCardCooldown(PlantCardSelection sel) {
   }
 }
 
-void App::RemoveSunAt(const std::size_t index) {
-  m_UIRoot.RemoveChild(m_Suns[index].object);
-  m_Suns.erase(m_Suns.begin() + static_cast<long>(index));
-}
 
 void App::DrawSunlightCounter() const {
   if (m_CameraStage != CameraStage::FINISHED) {
@@ -3019,10 +2588,8 @@ void App::UpdateCamera(const float deltaTime) {
       m_CameraStageElapsed = 0.0F;
       ClearBasicZombieStandPreview();
       SetupLawnMowers();
-      m_SunSystemStarted = true;
-      m_WaveSystemStarted = true;
-      m_WaveElapsedSec = 0.0F;
-      m_SunSpawnCountdown = 6.0F;
+      m_SunManager.Start(6.0F);
+      m_WaveController.Start();
     }
     break;
   }
@@ -3072,8 +2639,7 @@ void App::Update() {
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
 
     // Check win/lose conditions
-    if (!HasAliveZombie() && m_WaveSystemStarted &&
-        m_CurrentWaveGroupIndex >= m_ZombieWavePlan.size()) {
+    if (!HasAliveZombie() && m_WaveController.IsFinished()) {
       m_LevelManager->CompleteLevelSuccess();
       m_CurrentState = State::LEVEL_COMPLETE;
     }
@@ -3224,7 +2790,7 @@ void App::InitializeLevel() {
     m_LevelWaveConfig.phases.push_back(phase);
   }
 
-  BuildZombieSpawnPlan(m_LevelWaveConfig);
+  m_WaveController.Initialize(m_LevelWaveConfig);
   PrepareBasicZombieStandPreview();
 
   m_PeashooterAttackCooldowns.fill(1.0F);
@@ -3237,18 +2803,11 @@ void App::InitializeLevel() {
   m_LawnMowers.fill({});
   m_BasicZombieStandReady = false;
   m_UseStandRowForNextSpawn = true;
-  m_WaveSystemStarted = false;
-  m_WaveElapsedSec = 0.0F;
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
   m_HasShownHugeWaveBanner = false;
   m_HugeWaveBannerRemainingSec = 0.0F;
   m_GameOverBannerRemainingSec = 0.0F;
 
-  m_SunSystemStarted = false;
-  m_SunSpawnCountdown = 0.0F;
+  m_SunManager.Reset();
 }
 
 void App::ResetLevelRuntimeState() {
@@ -3273,10 +2832,10 @@ void App::ResetLevelRuntimeState() {
   m_Puffshrooms.fill(nullptr);
   m_Fumeshrooms.fill(nullptr);
   m_Nuts.fill(nullptr);
-  m_Peas.clear();
+  m_PeaBullets.clear();
+  m_ShroomBullets.clear();
   m_FumeshroomEffects.clear();
   m_ActiveZombies.clear();
-  m_Suns.clear();
   m_LawnMowers.fill({});
 
   ClearBasicZombieStandPreview();
@@ -3288,12 +2847,7 @@ void App::ResetLevelRuntimeState() {
   m_UseStandRowForNextSpawn = true;
   m_BasicZombieStandYPercent = 0.0F;
 
-  m_ZombieWavePlan.clear();
-  m_CurrentWaveGroupIndex = 0;
-  m_WaveGroupActive = false;
-  m_WaveGroupSpawnedCount = 0;
-  m_WaveGroupSpawnTimer = 0.0F;
-  m_CurrentWaveGroup = {};
+  m_WaveController.Reset();
   m_HasShownHugeWaveBanner = false;
   m_HugeWaveBannerRemainingSec = 0.0F;
   m_GameOverBannerRemainingSec = 0.0F;
@@ -3301,8 +2855,7 @@ void App::ResetLevelRuntimeState() {
   m_HugeWaveBanner->SetVisible(false);
   m_GameOverBanner->SetVisible(false);
 
-  m_SunSystemStarted = false;
-  m_SunSpawnCountdown = 0.0F;
+  m_SunManager.Reset();
   m_PuffshroomAttackCooldowns.fill(0.0F);
   m_PuffshroomAttackWarmupRemaining.fill(0.0F);
 }
@@ -3323,13 +2876,10 @@ void App::UpdateGameplay(float deltaTime) {
 
   UpdateCamera(dt);
   SetupBasicZombieStand();
-  if (m_SunSystemStarted) {
-    UpdateSuns(dt);
-  }
+  UpdateSuns(dt);
   UpdateBasicZombie(dt);
   UpdateLawnMowers(dt);
   UpdateCherryBombs(deltaTime);
-  UpdateSunshrooms(dt);
   UpdatePeashooterCombat(dt);
   UpdatePuffshroomCombat(dt);
   UpdateFumeshroomCombat(dt);

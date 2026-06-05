@@ -14,6 +14,8 @@ public:
             const std::vector<std::string> &grownFramePaths,
             std::size_t frameIntervalMs, float targetHeightPx);
 
+  bool ProducesSun() const override { return true; }
+
   void Update(float deltaTime);
   bool ShouldProduceSun(float deltaTime);
   int GetProducedSunValue() const;

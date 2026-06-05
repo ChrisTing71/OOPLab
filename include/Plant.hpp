@@ -3,6 +3,7 @@
 
 #include "pch.hpp" // IWYU pragma: export
 
+#include "TimerSystem.hpp"
 #include "Util/GameObject.hpp"
 
 class Plant : public Util::GameObject {
@@ -16,22 +17,22 @@ public:
   int GetGridRow() const { return m_GridRow; }
   void SetGridRow(const int row) { m_GridRow = row; }
 
-  // Cooldown management
-  float GetCooldownTime() const { return m_CooldownTime; }
+  // ── Placement cooldown (card cooldown shown in the UI) ──────────────────
+  float GetCooldownTime() const { return m_PlacementCooldown.GetTotal(); }
   void SetCooldownTime(float seconds) {
-    m_CooldownTime = glm::max(0.0F, seconds);
+    m_PlacementCooldown.ResetTo(glm::max(0.0F, seconds));
+    m_PlacementCooldown.remaining = 0.0F; // don't auto-start
   }
-  float GetRemainingCooldown() const { return m_RemainingCooldown; }
-  bool IsCoolingDown() const { return m_RemainingCooldown > 0.0F; }
-  void UpdateCooldown(float deltaTime) {
-    if (m_RemainingCooldown > 0.0F) {
-      m_RemainingCooldown -= deltaTime;
-      if (m_RemainingCooldown < 0.0F) {
-        m_RemainingCooldown = 0.0F;
-      }
-    }
+  float GetRemainingCooldown() const {
+    return m_PlacementCooldown.GetRemaining();
   }
-  void StartCooldown() { m_RemainingCooldown = m_CooldownTime; }
+  bool IsCoolingDown() const { return m_PlacementCooldown.IsRunning(); }
+  void UpdateCooldown(float deltaTime) { m_PlacementCooldown.Tick(deltaTime); }
+  void StartCooldown() { m_PlacementCooldown.Reset(); }
+
+  // ── Overridable plant behaviour ─────────────────────────────────────────
+  virtual bool CanShoot() const { return false; }
+  virtual bool ProducesSun() const { return false; }
 
   virtual void TakeDamage(const int amount) {
     if (amount <= 0 || IsDead()) {
@@ -40,8 +41,6 @@ public:
 
     m_Health = glm::max(0, m_Health - amount);
     if (m_Health == 0) {
-      // Immediately hide the object so it doesn't appear alive visually
-      // until the main loop removes dead plants.
       SetVisible(false);
     }
   }
@@ -51,8 +50,7 @@ public:
 private:
   int m_Health = 300;
   int m_GridRow = -1;
-  float m_CooldownTime = 7.5F; // Default cooldown in seconds
-  float m_RemainingCooldown = 0.0F;
+  Timer m_PlacementCooldown{7.5F}; // default card cooldown
 };
 
 #endif

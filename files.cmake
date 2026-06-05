@@ -1,6 +1,9 @@
 set(SRC_FILES
     App.cpp
     AppDebug.cpp
+    Bullet.cpp
+    ZombieWaveController.cpp
+    SunManager.cpp
     BasicZombie.cpp
     CardSlot.cpp
     ConeheadZombie.cpp
@@ -25,6 +28,10 @@ set(SRC_FILES
 set(INCLUDE_FILES
     App.hpp
     AppDebugConfig.hpp
+    Bullet.hpp
+    TimerSystem.hpp
+    ZombieWaveController.hpp
+    SunManager.hpp
     BasicZombie.hpp
     CardSlot.hpp
     CollisionSystem.hpp

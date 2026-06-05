@@ -26,6 +26,10 @@ public:
                       const std::vector<std::shared_ptr<Plant>> &plants);
   void TakeDamage(int amount, bool isCherryBombDamage = false);
 
+  // Subclass capability flags used to avoid dynamic_cast at call sites.
+  virtual bool CanJumpOverPlants() const { return false; }
+  virtual bool HasExtraArmor() const { return false; }
+
   State GetState() const { return m_State; }
   bool IsDestroyed() const { return m_Destroyed; }
   int GetGridRow() const { return m_GridRow; }
