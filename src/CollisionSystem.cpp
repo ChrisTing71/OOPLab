@@ -1,6 +1,7 @@
 #include "CollisionSystem.hpp"
 
 #include "Plant.hpp"
+#include "PolevaultingZombie.hpp"
 #include "Zombie.hpp"
 #include "config.hpp"
 
@@ -181,10 +182,14 @@ bool IsPixelInsideObject(const std::shared_ptr<Util::GameObject> &object,
 
 bool CheckCherryBombExplosionCollision(int centerRow, int centerColumn,
                                        int zombieRow, int zombieColumn) {
-  // Cherry bomb explosions affect zombies in adjacent grid cells
-  // (within 1 cell distance in both row and column)
   return glm::abs(zombieRow - centerRow) <= 1 &&
          glm::abs(zombieColumn - centerColumn) <= 1;
+}
+
+CollisionBoxType ZombieCollisionBoxType(const Util::GameObject &zombie) {
+  return (dynamic_cast<const PolevaultingZombie *>(&zombie) != nullptr)
+             ? CollisionBoxType::PolevaultingZombieAttack
+             : CollisionBoxType::BasicZombie;
 }
 
 } // namespace CollisionSystem

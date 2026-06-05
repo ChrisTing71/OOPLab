@@ -169,6 +169,16 @@ bool IsPixelInsideObject(const std::shared_ptr<Util::GameObject> &object,
 bool CheckCherryBombExplosionCollision(int centerRow, int centerColumn,
                                        int zombieRow, int zombieColumn);
 
+/**
+ * Determine the appropriate CollisionBoxType for a zombie object.
+ * Returns PolevaultingZombieAttack for PolevaultingZombie instances,
+ * BasicZombie for all others. Centralises the dynamic_cast pattern that
+ * was repeated at every bullet hit-detection call site.
+ *
+ * @param zombie  Any Zombie-derived object (as a Util::GameObject reference).
+ */
+CollisionBoxType ZombieCollisionBoxType(const Util::GameObject &zombie);
+
 } // namespace CollisionSystem
 
 #endif // COLLISION_SYSTEM_HPP

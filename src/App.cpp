@@ -2222,11 +2222,8 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPole =
-            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                   : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
         if (CollisionSystem::CheckAABBCollisionSameRow(
                 bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
@@ -2240,12 +2237,8 @@ void App::UpdatePuffshroomCombat(const float deltaTime) {
       if (hitZombie != nullptr) {
         hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPole =
-            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
-            nullptr;
         const auto zombieType =
-            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                   : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*hitZombie->object);
         const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
         const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
@@ -2374,17 +2367,13 @@ void App::UpdateFumeshroomCombat(const float deltaTime) {
       }
 
       const auto zombieType =
-          (dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr)
-              ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-              : CollisionSystem::CollisionBoxType::BasicZombie;
+          CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
-      const bool isHit = CollisionSystem::CheckAABBCollisionSameRow(
-          effect.row, zombie.object->GetGridRow(), *effect.object,
-          *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
-          zombieType);
-
-      if (isHit) {
-        zombie.object->TakeDamage(20);
+      if (CollisionSystem::CheckAABBCollisionSameRow(
+              effect.row, zombie.object->GetGridRow(), *effect.object,
+              *zombie.object, CollisionSystem::CollisionBoxType::PeaProjectile,
+              zombieType)) {
+        zombie.object->TakeDamage(Bullet::kDamage);
         effect.damagedZombies.insert(zombie.object.get());
       }
     }
@@ -2458,11 +2447,8 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
           continue;
         }
 
-        const bool isPole =
-            dynamic_cast<PolevaultingZombie *>(zombie.object.get()) != nullptr;
         const auto zombieType =
-            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                   : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*zombie.object);
 
         if (CollisionSystem::CheckAABBCollisionSameRow(
                 bullet->GetRow(), zombie.object->GetGridRow(), *bullet,
@@ -2476,12 +2462,8 @@ void App::UpdatePeashooterCombat(const float deltaTime) {
       if (hitZombie != nullptr) {
         hitZombie->object->TakeDamage(Bullet::kDamage);
 
-        const bool isPole =
-            dynamic_cast<PolevaultingZombie *>(hitZombie->object.get()) !=
-            nullptr;
         const auto zombieType =
-            isPole ? CollisionSystem::CollisionBoxType::PolevaultingZombieAttack
-                   : CollisionSystem::CollisionBoxType::BasicZombie;
+            CollisionSystem::ZombieCollisionBoxType(*hitZombie->object);
         const auto bounds = CollisionSystem::GetCollisionBoxBounds(
             *hitZombie->object, zombieType);
         const glm::vec2 hitCenter = {(bounds.minX + bounds.maxX) * 0.5F,
