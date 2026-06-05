@@ -57,6 +57,11 @@ LevelConfig LevelConfigLoader::LoadFromFile(const std::string &filePath) {
       config.initialSunAmount = jsonData["initialSunAmount"].get<int>();
     }
 
+    // Parse allowed plants for this level
+    if (jsonData.contains("allowedPlants") && jsonData["allowedPlants"].is_array()) {
+      config.allowedPlants = jsonData["allowedPlants"].get<std::vector<std::string>>();
+    }
+
     // Parse minimum defense points (sun needed for reward)
     if (jsonData.contains("minDefensePoints")) {
       config.minDefensePoints = jsonData["minDefensePoints"].get<int>();
@@ -156,5 +161,6 @@ LevelConfig LevelConfigLoader::GetDefaultConfig(int levelId) {
 
   config.phases.push_back(defaultPhase);
 
+  config.allowedPlants = {"sunflower", "sunshroom", "puffshroom", "fumeshroom", "peashooter", "nut", "cherrybomb"};
   return config;
 }

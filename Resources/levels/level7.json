@@ -5,6 +5,7 @@
     "sceneType": "night",
     "initialSunAmount": 100,
     "difficultyBadge": "Easy",
+    "allowedPlants": ["sunflower", "peashooter", "nut","cherrybomb","sunshroom","puffshroom"],
     "minDefensePoints": 0,
     "phases": [
         {

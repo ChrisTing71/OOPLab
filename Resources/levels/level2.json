@@ -5,6 +5,7 @@
     "sceneType": "day",
     "initialSunAmount": 50,
     "difficultyBadge": "Easy",
+    "allowedPlants": ["sunflower", "peashooter"],
     "minDefensePoints": 0,
     "phases": [
         {
