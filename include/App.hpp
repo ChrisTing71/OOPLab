@@ -33,6 +33,7 @@ public:
     MENU,           // Main menu - level selection
     GAME_LOADING,   // Loading level resources
     PLAYING,        // Actively playing the level
+    PAUSED,         // Game paused (pause menu visible)
     LEVEL_COMPLETE, // Level successfully completed
     LEVEL_FAILED,   // Level failed (zombies reached end)
     GAME_OVER,      // Game over
@@ -191,6 +192,7 @@ private:
   float GridRowCenterPercent(int row) const;
   std::vector<std::shared_ptr<Plant>> CollectAlivePlants() const;
   void DrawSunlightCounter() const;
+  void DrawPauseButton();
   void DebugDrawMouseOverlay() const;
   void DebugDrawCollisionBoxes() const;
   void SetupBannerObject(const std::shared_ptr<Util::GameObject> &banner,

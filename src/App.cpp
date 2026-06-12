@@ -2637,12 +2637,32 @@ void App::Update() {
 
   case State::PLAYING:
     UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+    DrawPauseButton();
 
     // Check win/lose conditions
     if (!HasAliveZombie() && m_WaveController.IsFinished()) {
       m_LevelManager->CompleteLevelSuccess();
       m_CurrentState = State::LEVEL_COMPLETE;
     }
+    break;
+
+  case State::PAUSED:
+    UpdateGameplay(Util::Time::GetDeltaTimeMs() / 1000.0F);
+
+    ImGui::SetNextWindowPos(
+        ImVec2(static_cast<float>(WINDOW_WIDTH) * 0.35F,
+               static_cast<float>(WINDOW_HEIGHT) * 0.35F),
+        ImGuiCond_Always);
+    ImGui::Begin("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize |
+                                         ImGuiWindowFlags_NoCollapse);
+    if (ImGui::Button("Resume", ImVec2(180, 36))) {
+      m_CurrentState = State::PLAYING;
+    }
+    if (ImGui::Button("Back to Menu", ImVec2(180, 36))) {
+      m_MenuScene->Reset();
+      m_CurrentState = State::MENU;
+    }
+    ImGui::End();
     break;
 
   case State::LEVEL_COMPLETE: {
@@ -2702,9 +2722,20 @@ void App::Update() {
     break;
   }
 
-  // Handle exit
-  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) {
+  // Handle exit / pause toggle
+  if (Util::Input::IfExit()) {
     m_CurrentState = State::END;
+  }
+  if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE)) {
+    if (m_CurrentState == State::PLAYING) {
+      m_CurrentState = State::PAUSED;
+    } else if (m_CurrentState == State::PAUSED) {
+      m_CurrentState = State::PLAYING;
+    } else if (m_CurrentState != State::START &&
+               m_CurrentState != State::GAME_LOADING) {
+      // Ignore ESC during transitional loading states to avoid partial-init render
+      m_CurrentState = State::END;
+    }
   }
 }
 
@@ -2867,8 +2898,9 @@ void App::UpdateGameplay(float deltaTime) {
   DrawGameplayCheatToggle();
   const bool uiCapturesMouse = ImGui::GetIO().WantCaptureMouse;
 
-  // If level failed, just render the frozen scene without updating game logic
-  if (m_CurrentState == State::LEVEL_FAILED) {
+  // If level failed or paused, just render the frozen scene without game logic
+  if (m_CurrentState == State::LEVEL_FAILED ||
+      m_CurrentState == State::PAUSED) {
     m_Root.Update();
     m_UIRoot.Update();
     return;
@@ -2967,6 +2999,27 @@ void App::UpdateGameplay(float deltaTime) {
     DebugDrawMouseOverlay();
   }
 }
+
+void App::DrawPauseButton() {
+  constexpr float kBtnW = 44.0F;
+  constexpr float kBtnH = 28.0F;
+  constexpr float kMargin = 8.0F;
+  ImGui::SetNextWindowPos(
+      ImVec2(static_cast<float>(WINDOW_WIDTH) - kBtnW - kMargin, kMargin),
+      ImGuiCond_Always);
+  ImGui::SetNextWindowSize(ImVec2(kBtnW, kBtnH));
+  ImGui::SetNextWindowBgAlpha(0.65F);
+  constexpr ImGuiWindowFlags kFlags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
+      ImGuiWindowFlags_NoFocusOnAppearing;
+  ImGui::Begin("##pause_btn", nullptr, kFlags);
+  if (ImGui::Button("II", ImVec2(kBtnW - 16.0F, kBtnH - 8.0F))) {
+    m_CurrentState = State::PAUSED;
+  }
+  ImGui::End();
+}
+
 
 void App::End() { // NOLINT(this method will mutate members in the future)
 }
