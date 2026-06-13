@@ -32,14 +32,18 @@ cmake --build build
 4. Render ImGui overlays
 5. Tick PTSD context
 
-`App` is a monolithic game controller (`include/App.hpp` / `src/App.cpp`, ~3400 lines) that owns all game state and drives every system each frame.
+`App` is a monolithic game controller (`include/App.hpp` / `src/App.cpp`, ~3000 lines) that owns all game state and drives every system each frame.
 
 ### State Machine
 
 `App::State` drives the top-level flow:
 ```
 START → MENU → GAME_LOADING → PLAYING → LEVEL_COMPLETE / LEVEL_FAILED → END
+                                  ↕
+                               PAUSED
 ```
+
+`PLAYING` ↔ `PAUSED` via the pause button; `PAUSED` can also return to `MENU`.
 
 Inside `PLAYING`, a camera intro sequence (3 stages: HOME → RIGHT → CENTER) must complete before sun drops, wave spawning, and the card UI become active.
 
@@ -83,18 +87,29 @@ Wave phase types: `setup`, `sub`, `huge`, `pause`. Each phase defines zombie typ
 
 `LevelConfig` also specifies `allowedPlants` — the card bar only shows plants listed for that level.
 
-### Key Systems in App.cpp
+### Extracted Systems
+
+Two subsystems have been refactored out of `App` into their own classes:
+
+| Class | File | Responsibility |
+|---|---|---|
+| `SunManager` | `include/SunManager.hpp` / `src/SunManager.cpp` | Owns all `Sun` objects; drives sky-sun spawning, plant-sun production, collection animation. `App` holds the sunlight count. |
+| `ZombieWaveController` | `include/ZombieWaveController.hpp` / `src/ZombieWaveController.cpp` | Builds and advances the wave spawn plan from `LevelWaveConfig`. |
+
+`App` holds a `SunManager m_SunManager` and a `ZombieWaveController m_WaveController` as value members. Both are reset via `Reset()` inside `ResetLevelRuntimeState()`.
+
+### Key Methods in App.cpp
 
 | Method | Responsibility |
 |---|---|
 | `UpdateCamera()` | 3-stage cinematic pan at level start |
-| `UpdateSuns()` | Falling sky-sun spawning + collection animation |
-| `UpdateBasicZombie()` | Wave phase advancement + zombie spawning |
+| `UpdateBasicZombie()` | Consults `ZombieWaveController`, spawns zombie objects |
 | `UpdatePeashooterCombat()` | Pea projectile spawning and movement |
 | `UpdateCherryBombs()` | Detonation timer + explosion damage |
 | `UpdateLawnMowers()` | Activation on zombie contact, row sweep |
 | `HandleGridClick()` | Plant placement / shovel removal |
-| `TryCollectSunAt()` | Click-to-collect sun pickup |
+| `InitializeLevel()` | Calls `ResetLevelRuntimeState()` then rebuilds scene graph |
+| `ResetLevelRuntimeState()` | Clears all per-level state (plant arrays, bullets, zombies, renderers) |
 
 ### Asset Pipeline
 
@@ -110,11 +125,14 @@ Fetched automatically by CMake via `FetchContent`:
 - **PTSD v0.2** — framework (GameObject, Animation, Renderer, Input, SDL2, OpenGL)
 - **nlohmann_json v3.11.3** — level JSON parsing
 
-Custom PTSD overrides live in `ptsd_overrides/` (Renderer, Image, Shaders) and are compiled in place of the framework originals.
+Custom PTSD overrides live in `ptsd_overrides/` (Renderer, Image, Shaders). CMake uses `configure_file` to copy them into the PTSD source tree at configure time, replacing the originals before compilation. Three overrides:
+- `Util::Renderer` — adds `SetTranslation()` for camera-pan offset
+- `Util::Image` — adds `SetTintColor()` / `SetFillProgress()` for card cooldown UI
+- `Base.frag` — GLSL implementation of tint and fill-progress effects
 
 ## Adding New Content
 
-**New plant:** Subclass `Plant`, implement constructor with sprite/animation paths, add a `PlaceXxxAtGridCell()` method in `App`, add a vector in `App.hpp`, wire into `UpdateGameplay()` and the card-slot UI, register in the level JSON `allowedPlants` array.
+**New plant:** Subclass `Plant`, implement constructor with sprite/animation paths, add a `std::array<std::shared_ptr<XxxPlant>, kGridCellCount>` in `App.hpp`, add a `PlaceXxxAtGridCell()` method, wire into `UpdateGameplay()` and the card-slot UI, register in the level JSON `allowedPlants` array. Also add `.fill(nullptr)` for the new array in `ResetLevelRuntimeState()` and include it in `IsCellOccupied()` — omitting either causes stale references or grid bugs across level resets.
 
 **New zombie:** Subclass `Zombie`, set stats in constructor (speed, health, damage), add spawn logic in `UpdateBasicZombie()` or a dedicated `UpdateXxxZombie()`, add a `CollisionBoxType` entry if hitbox differs from the default.
 
