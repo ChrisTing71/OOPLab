@@ -2505,8 +2505,6 @@ void App::Start() {
   m_PeashooterAttackCooldowns.fill(1.0F);
   m_PuffshroomAttackCooldowns.fill(1.0F);
   m_PuffshroomAttackWarmupRemaining.fill(0.0F);
-  m_PuffshroomAttackWarmupRemaining.fill(0.0F);
-  m_PuffshroomAttackCooldowns.fill(1.0F);
   m_FumeshroomAttackCooldowns.fill(1.0F);
   m_FumeshroomAttackWarmupRemaining.fill(0.0F);
 
@@ -2863,6 +2861,7 @@ void App::ResetLevelRuntimeState() {
   m_Puffshrooms.fill(nullptr);
   m_Fumeshrooms.fill(nullptr);
   m_Nuts.fill(nullptr);
+  m_CherryBombs.fill(nullptr);
   m_PeaBullets.clear();
   m_ShroomBullets.clear();
   m_FumeshroomEffects.clear();
